@@ -1,95 +1,59 @@
 'use client';
 
 import React from 'react';
-import { 
-  Sparkles, 
-  Link as LinkIcon, 
-  Settings, 
-  Sun, 
-  Moon, 
-  AlertTriangle, 
-  FileSpreadsheet,
-  CheckCircle2
-} from 'lucide-react';
+import { Sparkles, Sun, Moon, Layers } from 'lucide-react';
 
 export default function Header({
-  isConnected,
-  isDemo,
   sheets = [],
-  activeSheet,
+  activeSheet = '',
   onSelectSheet,
-  onOpenSetup,
-  onOpenDefaulters,
-  defaulterCount = 0,
-  theme,
+  isConnected = true,
+  theme = 'dark',
   onToggleTheme
 }) {
   return (
     <header className="glass-panel app-header">
-      <div className="brand-section">
-        <div className="brand-logo">
-          <Sparkles size={24} />
+      {/* App Branding */}
+      <div className="header-brand">
+        <div className="brand-icon">
+          <Sparkles size={20} className="brand-sparkle" />
         </div>
-        <div>
-          <h1 className="brand-title">AutoAttendance</h1>
-          <p className="brand-subtitle">Smart Google Sheets Automation</p>
+        <div className="brand-text">
+          <h1>AutoAttendance</h1>
+          <span className="brand-subtitle">Automated Attendance System</span>
         </div>
       </div>
 
+      {/* Header Actions */}
       <div className="header-actions">
-        {/* Active Sheet Selector */}
+        {/* Department Switcher */}
         {sheets.length > 0 && (
-          <div className="form-group" style={{ minWidth: '180px' }}>
+          <div className="dept-dropdown-wrapper">
+            <Layers size={16} className="dept-icon" />
             <select
-              className="input-control"
+              className="dept-select"
               value={activeSheet}
               onChange={(e) => onSelectSheet(e.target.value)}
-              title="Select Class / Sheet Tab"
+              title="Select Department Sheet"
             >
               {sheets.map((s) => (
                 <option key={s} value={s}>
-                  📄 {s}
+                  Department: {s}
                 </option>
               ))}
             </select>
           </div>
         )}
 
-        {/* Connection Status Pill */}
-        <button
-          className="status-pill"
-          onClick={onOpenSetup}
-          title="Click to configure Google Sheet connection"
-        >
-          <span className={`status-dot ${isConnected ? 'connected' : isDemo ? 'demo' : ''}`} />
-          <span>
-            {isConnected ? 'Live Google Sheet' : isDemo ? 'Demo Mode' : 'Not Connected'}
-          </span>
-          <Settings size={14} style={{ marginLeft: '4px', color: 'var(--text-muted)' }} />
-        </button>
-
-        {/* Defaulter Alert Button */}
-        {defaulterCount > 0 && (
-          <button
-            className="btn btn-secondary"
-            onClick={onOpenDefaulters}
-            style={{ borderColor: 'rgba(239, 68, 68, 0.4)', color: '#f87171' }}
-            title="View students with attendance below 75%"
-          >
-            <AlertTriangle size={16} />
-            <span>{defaulterCount} Defaulters</span>
-          </button>
-        )}
-
-        {/* Setup / Connect Button */}
-        <button className="btn btn-primary" onClick={onOpenSetup}>
-          <LinkIcon size={16} />
-          <span>{isConnected ? 'Connected Sheet' : 'Connect Sheet'}</span>
-        </button>
+        {/* Live Sheet Status Pill (Obeys dark/light theme) */}
+        <div className="theme-status-pill" title={isConnected ? "Connected to Google Sheet" : "Offline"}>
+          <span className={`status-dot ${isConnected ? 'online' : 'offline'}`} />
+          <span className="status-label">{isConnected ? 'Connected' : 'Offline'}</span>
+        </div>
 
         {/* Theme Toggle Button */}
         <button
-          className="btn btn-secondary btn-icon"
+          className="btn-theme-toggle"
           onClick={onToggleTheme}
           title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
         >

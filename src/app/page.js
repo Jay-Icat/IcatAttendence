@@ -2,120 +2,72 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import confetti from 'canvas-confetti';
-import Header from '../components/Header';
-import StatsOverview from '../components/StatsOverview';
-import SessionBar from '../components/SessionBar';
-import ActionBar from '../components/ActionBar';
-import StudentList from '../components/StudentList';
-import FloatingSyncBar from '../components/FloatingSyncBar';
-import SetupGuideModal from '../components/SetupGuideModal';
-import DefaultersModal from '../components/DefaultersModal';
-import RandomStudentModal from '../components/RandomStudentModal';
-
 import { 
-  testConnection, 
-  fetchSheetData, 
-  saveAttendanceToSheet, 
-  calculateStats,
-  computeStudentCumulativeStats
-} from '../lib/googleSheets';
-import { MOCK_SHEETS, MOCK_STUDENTS, MOCK_SESSIONS } from '../lib/mockData';
-import { DEFAULT_SESSIONS, STORAGE_KEYS, getSmartCurrentSession } from '../lib/constants';
+  Calendar, 
+  CheckCheck, 
+  XCircle, 
+  Filter, 
+  Send, 
+  Loader2, 
+  CheckCircle2, 
+  AlertCircle 
+} from 'lucide-react';
+
+import Header from '../components/Header';
+import StudentRow from '../components/StudentRow';
+import WeekendHoliday from '../components/WeekendHoliday';
+import { 
+  DEFAULT_SESSIONS, 
+  DEFAULT_SHEET_URL, 
+  DEFAULT_APPS_SCRIPT_URL, 
+  STORAGE_KEYS, 
+  getSmartCurrentSession, 
+  isWeekend, 
+  getFormattedToday, 
+  getTodayISODate 
+} from '../lib/constants';
+import { fetchSheetData, saveAttendanceToSheet } from '../lib/googleSheets';
+import { ALL_DEPARTMENTS } from '../lib/gvizSheets';
+import { MOCK_SHEETS, MOCK_STUDENTS } from '../lib/mockData';
 
 export default function AttendancePage() {
   // Theme state
   const [theme, setTheme] = useState('dark');
 
-  // Connection & Sheet State
-  const [scriptUrl, setScriptUrl] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isDemo, setIsDemo] = useState(true);
-  const [sheets, setSheets] = useState(MOCK_SHEETS);
-  const [activeSheet, setActiveSheet] = useState(MOCK_SHEETS[0]);
-  const [students, setStudents] = useState(MOCK_STUDENTS[MOCK_SHEETS[0]] || []);
-  const [existingSessions, setExistingSessions] = useState(MOCK_SESSIONS);
-  const [batches, setBatches] = useState(['Year 1', 'Year 2', 'Year 3', 'Year 4']);
+  // Sheet & Department State
+  const [sheets, setSheets] = useState(ALL_DEPARTMENTS);
+  const [activeSheet, setActiveSheet] = useState('GT');
+  const [isConnected, setIsConnected] = useState(true);
+
+  // Student & Batch Data
+  const [students, setStudents] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState('ALL');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Column Mapping (Matches their sheet with Row 5 headers, Col A Roll No, Col B Name)
-  const [columnMapping, setColumnMapping] = useState({
-    headerRow: 5,
-    idCol: 'A',
-    nameCol: 'B'
-  });
+  // Session & Date State (Date is locked strictly to today)
+  const todayISO = getTodayISODate();
+  const todayFormatted = getFormattedToday();
+  const isTodayWeekend = isWeekend();
+  const [selectedSession, setSelectedSession] = useState(getSmartCurrentSession());
 
-  // Session & Date State
-  const getTodayString = () => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const [date, setDate] = useState(getTodayString());
-  const [session, setSession] = useState(getSmartCurrentSession());
-  const [customSessionText, setCustomSessionText] = useState('');
-  const [isNewSessionMode, setIsNewSessionMode] = useState(true);
-  const [selectedPastSession, setSelectedPastSession] = useState('');
-
-  // Attendance Map: { [studentId]: 'P' | 'A' | 'L' | 'OD' }
+  // Attendance State { studentId: 'P' | 'A' | 'OD' }
   const [currentAttendance, setCurrentAttendance] = useState({});
 
-  // Search & Filter State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('ALL');
-
-  // UI Modals & Loading
-  const [isSetupOpen, setIsSetupOpen] = useState(false);
-  const [isDefaultersOpen, setIsDefaultersOpen] = useState(false);
-  const [randomStudent, setRandomStudent] = useState(null);
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
+  // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
-  // Helper to filter department sheets from reports/helpers
-  const filterDeptSheets = (allList = []) => {
-    const depts = allList.filter(
-      (s) =>
-        !s.toLowerCase().includes('report') &&
-        !s.toLowerCase().includes('helper') &&
-        !s.toLowerCase().includes('list') &&
-        !s.toLowerCase().includes('contact') &&
-        !s.toLowerCase().includes('consolidated') &&
-        !s.toLowerCase().includes('absentees')
-    );
-    return depts.length > 0 ? depts : allList;
-  };
-
-  // Load saved settings from LocalStorage
+  // Initialize theme
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
       setTheme(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
-
-      const savedUrl = localStorage.getItem(STORAGE_KEYS.SCRIPT_URL);
-      if (savedUrl) {
-        setScriptUrl(savedUrl);
-        loadLiveData(savedUrl);
-      } else {
-        setIsDemo(true);
-        setIsConnected(false);
-      }
-
-      const savedColMap = localStorage.getItem(STORAGE_KEYS.COLUMN_MAPPING);
-      if (savedColMap) {
-        setColumnMapping(JSON.parse(savedColMap));
-      }
-    } catch (e) {
-      console.error('Error reading localStorage:', e);
-    }
+    } catch (e) {}
   }, []);
 
-  // Theme Toggle
   const handleToggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
@@ -125,133 +77,59 @@ export default function AttendancePage() {
     } catch (e) {}
   };
 
-  // Load Live Google Sheet Data
-  const loadLiveData = async (url, sheetName = '') => {
+  // Load Department Data
+  const loadDepartmentData = async (sheetName) => {
+    setIsLoading(true);
+    const targetUrl = DEFAULT_SHEET_URL || DEFAULT_APPS_SCRIPT_URL;
+
     try {
-      const data = await fetchSheetData(url, sheetName, columnMapping);
+      const data = await fetchSheetData(targetUrl, sheetName);
       if (data.success && data.data) {
         setIsConnected(true);
-        setIsDemo(false);
-        const depts = filterDeptSheets(data.sheets || [data.sheetName]);
-        setSheets(depts);
-        const targetSheet = sheetName || data.sheetName || depts[0];
-        setActiveSheet(targetSheet);
         setStudents(data.data.students || []);
-        setExistingSessions(data.data.sessions || []);
         if (data.data.batches && data.data.batches.length > 0) {
           setBatches(data.data.batches);
-        }
-        if (data.data.sessions && data.data.sessions.length > 0) {
-          setSelectedPastSession(data.data.sessions[data.data.sessions.length - 1].header);
+        } else {
+          setBatches(['IV', 'III', 'II', 'I']);
         }
       }
     } catch (err) {
-      console.warn('Could not auto-load live sheet data, keeping demo mode:', err);
+      console.warn('Using local fallback data for', sheetName, err);
+      const fallback = MOCK_STUDENTS[sheetName] || MOCK_STUDENTS['GT'] || [];
+      setStudents(fallback);
+      setBatches(['IV', 'III', 'II', 'I']);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Switch Sheet Tab
-  const handleSelectSheet = async (newSheet) => {
+  // Load initial sheet on mount
+  useEffect(() => {
+    loadDepartmentData(activeSheet);
+  }, [activeSheet]);
+
+  // Switch Department Tab
+  const handleSelectSheet = (newSheet) => {
     setActiveSheet(newSheet);
     setCurrentAttendance({});
     setSelectedBatch('ALL');
-
-    if (isConnected && scriptUrl) {
-      try {
-        const data = await fetchSheetData(scriptUrl, newSheet, columnMapping);
-        if (data.success && data.data) {
-          setStudents(data.data.students || []);
-          setExistingSessions(data.data.sessions || []);
-          if (data.data.batches) setBatches(data.data.batches);
-          if (data.data.sessions && data.data.sessions.length > 0) {
-            setSelectedPastSession(data.data.sessions[data.data.sessions.length - 1].header);
-          }
-        }
-      } catch (err) {
-        console.error('Error switching live sheet:', err);
-      }
-    } else {
-      const mockList = MOCK_STUDENTS[newSheet] || [];
-      setStudents(mockList);
-    }
   };
 
-  // Compute active target session column header
-  const targetSessionHeader = useMemo(() => {
-    if (isNewSessionMode) {
-      const sessName = session === 'CUSTOM' ? (customSessionText || 'Custom Session') : session;
-      return `${date} - ${sessName}`;
-    }
-    return selectedPastSession || 'Select Past Session';
-  }, [isNewSessionMode, date, session, customSessionText, selectedPastSession]);
-
-  // When selecting past session, populate currentAttendance from history
-  const handleSelectPastSession = (header) => {
-    setSelectedPastSession(header);
-    const newAtt = {};
-    students.forEach((s) => {
-      if (s.history && s.history[header]) {
-        newAtt[s.id] = s.history[header];
-      }
-    });
-    setCurrentAttendance(newAtt);
-  };
-
-  const handleToggleSessionMode = (isNew) => {
-    setIsNewSessionMode(isNew);
-    if (!isNew && existingSessions.length > 0) {
-      const header = selectedPastSession || existingSessions[existingSessions.length - 1].header;
-      handleSelectPastSession(header);
-    } else {
-      setCurrentAttendance({});
-    }
-  };
-
-  // Handle marking status for single student
-  const handleStatusChange = (studentId, status) => {
+  // Single Student Status Change (P, A, OD)
+  const handleStatusChange = (studentId, newStatus) => {
     setCurrentAttendance((prev) => ({
       ...prev,
-      [studentId]: status
+      [studentId]: newStatus
     }));
   };
 
-  // Filtered Students List
+  // Filtered Students List by Batch
   const filteredStudents = useMemo(() => {
-    let list = [...students];
+    if (selectedBatch === 'ALL') return students;
+    return students.filter((s) => s.batchYear === selectedBatch);
+  }, [students, selectedBatch]);
 
-    // Batch Year filter
-    if (selectedBatch !== 'ALL') {
-      list = list.filter((s) => s.batchYear === selectedBatch);
-    }
-
-    // Search query filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          (s.rollNo && String(s.rollNo).toLowerCase().includes(q)) ||
-          s.id.toLowerCase().includes(q)
-      );
-    }
-
-    // Status filter
-    if (activeFilter === 'P') {
-      list = list.filter((s) => currentAttendance[s.id] === 'P');
-    } else if (activeFilter === 'A') {
-      list = list.filter((s) => currentAttendance[s.id] === 'A');
-    } else if (activeFilter === 'LATE_OD') {
-      list = list.filter(
-        (s) => currentAttendance[s.id] === 'L' || currentAttendance[s.id] === 'OD'
-      );
-    } else if (activeFilter === 'UNMARKED') {
-      list = list.filter((s) => !currentAttendance[s.id]);
-    }
-
-    return list;
-  }, [students, selectedBatch, searchQuery, activeFilter, currentAttendance]);
-
-  // Batch actions
+  // Batch Quick Actions
   const handleMarkAllPresent = () => {
     const updated = { ...currentAttendance };
     filteredStudents.forEach((s) => {
@@ -268,71 +146,15 @@ export default function AttendancePage() {
     setCurrentAttendance(updated);
   };
 
-  const handleInvertAttendance = () => {
-    const updated = { ...currentAttendance };
-    filteredStudents.forEach((s) => {
-      const current = currentAttendance[s.id];
-      if (current === 'P') updated[s.id] = 'A';
-      else if (current === 'A') updated[s.id] = 'P';
-      else updated[s.id] = 'P';
-    });
-    setCurrentAttendance(updated);
-  };
+  // Marked Count
+  const markedCount = useMemo(() => {
+    return filteredStudents.filter((s) => currentAttendance[s.id]).length;
+  }, [filteredStudents, currentAttendance]);
 
-  const handleClearAttendance = () => {
-    setCurrentAttendance({});
-  };
-
-  // Random Student Callout Picker
-  const handleRandomStudent = () => {
-    if (filteredStudents.length === 0) return;
-    const randomIndex = Math.floor(Math.random() * filteredStudents.length);
-    setRandomStudent(filteredStudents[randomIndex]);
-  };
-
-  // Test Connection to Google Sheet Web App
-  const handleTestConnection = async () => {
-    setIsTesting(true);
-    setTestResult(null);
-    try {
-      const res = await testConnection(scriptUrl);
-      setTestResult(res);
-      if (res.success) {
-        setIsConnected(true);
-        setIsDemo(false);
-        try {
-          localStorage.setItem(STORAGE_KEYS.SCRIPT_URL, scriptUrl);
-          localStorage.setItem(STORAGE_KEYS.COLUMN_MAPPING, JSON.stringify(columnMapping));
-        } catch (e) {}
-        
-        // Load the live data
-        await loadLiveData(scriptUrl);
-
-        // Close setup modal after brief success feedback
-        setTimeout(() => {
-          setIsSetupOpen(false);
-        }, 1200);
-      }
-    } catch (err) {
-      setTestResult({ success: false, error: err.message });
-    } finally {
-      setIsTesting(false);
-    }
-  };
-
-  // Switch to Demo Mode
-  const handleUseDemoMode = () => {
-    setIsConnected(false);
-    setIsDemo(true);
-    setSheets(MOCK_SHEETS);
-    setActiveSheet(MOCK_SHEETS[0]);
-    setStudents(MOCK_STUDENTS[MOCK_SHEETS[0]] || []);
-    setExistingSessions(MOCK_SESSIONS);
-    setIsSetupOpen(false);
-  };
-
-  // Sync / Save Attendance to Google Sheet
+  // Handle Sync to Google Sheet
   const handleSync = async () => {
+    if (markedCount === 0) return;
+
     setIsSyncing(true);
     setSyncSuccess(false);
     setSyncError(null);
@@ -347,52 +169,24 @@ export default function AttendancePage() {
         mark: currentAttendance[s.id]
       }));
 
+    const sessionObj = DEFAULT_SESSIONS.find((s) => s.code === selectedSession) || DEFAULT_SESSIONS[0];
+
     const payload = {
       sheetName: activeSheet,
-      date,
-      session: session === 'CUSTOM' ? customSessionText : session,
-      sessionHeader: targetSessionHeader,
-      attendance: currentAttendance,
-      updates,
-      headerRow: columnMapping.headerRow || 5,
-      idCol: columnMapping.idCol || 'A',
-      nameCol: columnMapping.nameCol || 'B'
+      date: todayISO,
+      session: sessionObj.name,
+      sessionCode: selectedSession,
+      updates
     };
 
     try {
-      if (isDemo || !isConnected) {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-
-        // Update local mock history
-        setStudents((prev) =>
-          prev.map((s) => ({
-            ...s,
-            history: {
-              ...s.history,
-              [targetSessionHeader]: currentAttendance[s.id] || ''
-            }
-          }))
-        );
-
-        if (!existingSessions.some((s) => s.header === targetSessionHeader)) {
-          setExistingSessions((prev) => [
-            ...prev,
-            { columnIndex: prev.length + 7, columnLetter: 'H', header: targetSessionHeader }
-          ]);
-        }
-      } else {
-        const result = await saveAttendanceToSheet(scriptUrl, payload);
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to save attendance');
-        }
-
-        await loadLiveData(scriptUrl, activeSheet);
-      }
+      const targetUrl = DEFAULT_APPS_SCRIPT_URL || DEFAULT_SHEET_URL;
+      await saveAttendanceToSheet(targetUrl, payload);
 
       try {
         confetti({
-          particleCount: 90,
-          spread: 80,
+          particleCount: 80,
+          spread: 70,
           origin: { y: 0.85 }
         });
       } catch (e) {}
@@ -408,133 +202,180 @@ export default function AttendancePage() {
     }
   };
 
-  // Live Statistics calculation
-  const stats = useMemo(() => {
-    return calculateStats(filteredStudents, currentAttendance);
-  }, [filteredStudents, currentAttendance]);
-
-  // Defaulter count
-  const defaulterCount = useMemo(() => {
-    return students.filter((s) => {
-      const cs = computeStudentCumulativeStats(s, targetSessionHeader, currentAttendance[s.id]);
-      return cs.isDefaulter || (cs.percentage < 75 && cs.totalSessions > 0);
-    }).length;
-  }, [students, targetSessionHeader, currentAttendance]);
-
-  const markedCount = Object.keys(currentAttendance).filter((k) => currentAttendance[k]).length;
-
   return (
     <div className="app-container">
-      {/* Header */}
-      <Header
-        isConnected={isConnected}
-        isDemo={isDemo}
-        sheets={sheets}
-        activeSheet={activeSheet}
-        onSelectSheet={handleSelectSheet}
-        onOpenSetup={() => setIsSetupOpen(true)}
-        onOpenDefaulters={() => setIsDefaultersOpen(true)}
-        defaulterCount={defaulterCount}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-      />
+      {/* Ambient Backdrop */}
+      <div className="ambient-bg">
+        <div className="ambient-blob-1" />
+        <div className="ambient-blob-2" />
+      </div>
 
-      {/* Real-Time Stats Overview */}
-      <StatsOverview stats={stats} />
+      <div className="app-content">
+        {/* Header */}
+        <Header
+          sheets={sheets}
+          activeSheet={activeSheet}
+          onSelectSheet={handleSelectSheet}
+          isConnected={isConnected}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+        />
 
-      {/* Session & Date Bar */}
-      <SessionBar
-        date={date}
-        onChangeDate={setDate}
-        session={session}
-        onChangeSession={setSession}
-        isNewSessionMode={isNewSessionMode}
-        onToggleSessionMode={handleToggleSessionMode}
-        existingSessions={existingSessions}
-        selectedPastSession={selectedPastSession}
-        onSelectPastSession={handleSelectPastSession}
-        customSessionText={customSessionText}
-        onChangeCustomSessionText={setCustomSessionText}
-      />
+        {/* If Today is Saturday or Sunday -> Weekend Screen */}
+        {isTodayWeekend ? (
+          <WeekendHoliday />
+        ) : (
+          /* Weekday Attendance Flow */
+          <main className="main-content">
+            {/* Control Bar: Date + 3 Sessions + Batch Filter + Quick Actions */}
+            <div className="glass-panel control-bar">
+              {/* Left: Date Display & 3-Session Selector */}
+              <div className="control-bar-left">
+                <div className="date-indicator" title="Current Date (Locked to Today)">
+                  <Calendar size={16} className="date-icon" />
+                  <span>{todayFormatted}</span>
+                </div>
 
-      {/* Quick Action Toolbar (Search, Batch Year, Filter, Batch Mark) */}
-      <ActionBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-        filterCounts={{
-          total: students.length,
-          present: stats.present,
-          absent: stats.absent,
-          late: stats.late,
-          excused: stats.excused,
-          unmarked: stats.unmarked
-        }}
-        batches={batches}
-        selectedBatch={selectedBatch}
-        onSelectBatch={setSelectedBatch}
-        onMarkAllPresent={handleMarkAllPresent}
-        onMarkAllAbsent={handleMarkAllAbsent}
-        onInvertAttendance={handleInvertAttendance}
-        onClearAttendance={handleClearAttendance}
-        onRandomStudent={handleRandomStudent}
-      />
+                <div className="session-pill-group">
+                  {DEFAULT_SESSIONS.map((sess) => (
+                    <button
+                      key={sess.code}
+                      type="button"
+                      className={`session-pill ${selectedSession === sess.code ? 'active' : ''}`}
+                      onClick={() => setSelectedSession(sess.code)}
+                      title={sess.name}
+                    >
+                      {sess.code}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-      {/* Student Cards Grid */}
-      <StudentList
-        students={filteredStudents}
-        currentAttendance={currentAttendance}
-        onStatusChange={handleStatusChange}
-        activeSessionHeader={targetSessionHeader}
-        highlightedStudentId={randomStudent ? randomStudent.id : null}
-      />
+              {/* Right: Batch Filter & Quick Actions */}
+              <div className="control-bar-right">
+                {batches.length > 0 && (
+                  <div className="batch-select-wrapper">
+                    <Filter size={14} className="batch-icon" />
+                    <select
+                      className="batch-select"
+                      value={selectedBatch}
+                      onChange={(e) => setSelectedBatch(e.target.value)}
+                    >
+                      <option value="ALL">All Batches</option>
+                      {batches.map((b) => (
+                        <option key={b} value={b}>
+                          Batch {b}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-      {/* Floating Bottom Sync Action Bar */}
-      <FloatingSyncBar
-        isSyncing={isSyncing}
-        syncSuccess={syncSuccess}
-        syncError={syncError}
-        onSync={handleSync}
-        totalStudents={filteredStudents.length}
-        markedCount={markedCount}
-        activeSheet={activeSheet}
-        targetSessionHeader={targetSessionHeader}
-        isDemo={isDemo}
-      />
+                <div className="batch-actions-group">
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-all-present"
+                    onClick={handleMarkAllPresent}
+                    title="Mark all filtered students Present"
+                  >
+                    <CheckCheck size={15} />
+                    <span>All Present</span>
+                  </button>
 
-      {/* Setup Guide Modal */}
-      <SetupGuideModal
-        isOpen={isSetupOpen}
-        onClose={() => setIsSetupOpen(false)}
-        scriptUrl={scriptUrl}
-        onChangeScriptUrl={setScriptUrl}
-        onTestConnection={handleTestConnection}
-        isTesting={isTesting}
-        testResult={testResult}
-        columnMapping={columnMapping}
-        onChangeColumnMapping={setColumnMapping}
-        onUseDemoMode={handleUseDemoMode}
-      />
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-all-absent"
+                    onClick={handleMarkAllAbsent}
+                    title="Mark all filtered students Absent"
+                  >
+                    <XCircle size={15} />
+                    <span>All Absent</span>
+                  </button>
+                </div>
+              </div>
+            </div>
 
-      {/* Defaulters Modal */}
-      <DefaultersModal
-        isOpen={isDefaultersOpen}
-        onClose={() => setIsDefaultersOpen(false)}
-        students={students}
-        activeSessionHeader={targetSessionHeader}
-        currentAttendance={currentAttendance}
-      />
+            {/* Students Row-Based List */}
+            <div className="glass-panel student-list-container">
+              <div className="student-list-header">
+                <span className="col-student-title">
+                  Students ({filteredStudents.length})
+                </span>
+                <span className="col-actions-title">Attendance</span>
+              </div>
 
-      {/* Random Student Modal */}
-      <RandomStudentModal
-        isOpen={!!randomStudent}
-        onClose={() => setRandomStudent(null)}
-        student={randomStudent}
-        currentStatus={randomStudent ? currentAttendance[randomStudent.id] : ''}
-        onMarkStatus={handleStatusChange}
-        onSpinAgain={handleRandomStudent}
-      />
+              {isLoading ? (
+                <div className="student-list-loading">
+                  <Loader2 size={24} className="animate-spin" />
+                  <span>Loading students from {activeSheet}...</span>
+                </div>
+              ) : filteredStudents.length === 0 ? (
+                <div className="student-list-empty">
+                  <span>No students found in this batch.</span>
+                </div>
+              ) : (
+                <div className="student-rows-wrapper">
+                  {filteredStudents.map((student) => (
+                    <StudentRow
+                      key={student.id}
+                      student={student}
+                      currentStatus={currentAttendance[student.id] || ''}
+                      onStatusChange={handleStatusChange}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Floating Sync Bar */}
+            {filteredStudents.length > 0 && (
+              <div className="floating-sync-bar">
+                <div className="sync-bar-info">
+                  <span className="sync-bar-count">
+                    <strong>{markedCount}</strong> of {filteredStudents.length} Marked
+                  </span>
+                  <span className="sync-bar-details">
+                    {activeSheet} • {selectedSession} • {todayISO}
+                  </span>
+                </div>
+
+                {syncSuccess && (
+                  <div className="sync-status-msg success">
+                    <CheckCircle2 size={16} />
+                    <span>Synced to Google Sheet!</span>
+                  </div>
+                )}
+
+                {syncError && (
+                  <div className="sync-status-msg error">
+                    <AlertCircle size={16} />
+                    <span>{syncError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="btn btn-sync-primary"
+                  onClick={handleSync}
+                  disabled={isSyncing || markedCount === 0}
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Syncing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      <span>Sync Attendance to Sheet</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </main>
+        )}
+      </div>
     </div>
   );
 }

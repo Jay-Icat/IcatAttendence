@@ -17,33 +17,27 @@ export const ATTENDANCE_STATUS = {
     borderColor: 'rgba(239, 68, 68, 0.4)',
     icon: 'X'
   },
-  LATE: {
-    code: 'L',
-    label: 'Late',
-    badgeClass: 'badge-late',
-    color: '#f59e0b',
-    bgColor: 'rgba(245, 158, 11, 0.15)',
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-    icon: 'Clock'
-  },
-  EXCUSED: {
+  ON_DUTY: {
     code: 'OD',
-    label: 'On-Duty / Excused',
+    label: 'On-Duty',
     badgeClass: 'badge-excused',
-    color: '#6366f1',
-    bgColor: 'rgba(99, 102, 241, 0.15)',
-    borderColor: 'rgba(99, 102, 241, 0.4)',
+    color: '#8b5cf6',
+    bgColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: 'rgba(139, 92, 246, 0.4)',
     icon: 'FileText'
   }
 };
 
 export const DEFAULT_SESSIONS = [
-  'Session 1 (09:15 AM - 11:00 AM)',
-  'Session 2 (11:15 AM - 01:00 PM)',
-  'Session 3 (02:00 PM - 04:00 PM)'
+  { code: 'S1', label: 'S1 (09:15 - 11:00 AM)', name: 'Session 1 (09:15 AM - 11:00 AM)' },
+  { code: 'S2', label: 'S2 (11:15 - 01:00 PM)', name: 'Session 2 (11:15 AM - 01:00 PM)' },
+  { code: 'S3', label: 'S3 (02:00 - 04:00 PM)', name: 'Session 3 (02:00 PM - 04:00 PM)' }
 ];
 
-export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby9IEHhQ4yei1Du7y2LG_mFnqD5jP5Cj3b8lu4Ip84Ni1dkKDbQkWlueV-klVHFGRgxtw/exec';
+export const DEFAULT_SHEET_URL = process.env.NEXT_PUBLIC_SHEET_URL || '';
+export const DEFAULT_APPS_SCRIPT_URL = 
+  process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || 
+  'https://script.google.com/macros/s/AKfycby9IEHhQ4yei1Du7y2LG_mFnqD5jP5Cj3b8lu4Ip84Ni1dkKDbQkWlueV-klVHFGRgxtw/exec';
 
 export function getSmartCurrentSession() {
   const now = new Date();
@@ -51,20 +45,36 @@ export function getSmartCurrentSession() {
   const minutes = now.getMinutes();
   const totalMinutes = hours * 60 + minutes;
 
+  // 09:15 AM = 555 mins, 11:15 AM = 675 mins, 02:00 PM = 840 mins
   if (totalMinutes < 675) {
-    return DEFAULT_SESSIONS[0]; // Session 1
+    return 'S1';
   } else if (totalMinutes < 840) {
-    return DEFAULT_SESSIONS[1]; // Session 2
+    return 'S2';
   } else {
-    return DEFAULT_SESSIONS[2]; // Session 3
+    return 'S3';
   }
 }
 
+export function isWeekend(date = new Date()) {
+  const day = date.getDay();
+  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+}
+
+export function getFormattedToday() {
+  const d = new Date();
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  return d.toLocaleDateString('en-US', options);
+}
+
+export function getTodayISODate() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export const STORAGE_KEYS = {
-  SCRIPT_URL: 'autoattend_script_url',
-  SHEET_NAME: 'autoattend_active_sheet',
-  COLUMN_MAPPING: 'autoattend_col_mapping',
   THEME: 'autoattend_theme',
-  CUSTOM_SESSIONS: 'autoattend_custom_sessions',
-  CACHED_ATTENDANCE: 'autoattend_cached_state'
+  ACTIVE_SHEET: 'autoattend_active_dept'
 };
