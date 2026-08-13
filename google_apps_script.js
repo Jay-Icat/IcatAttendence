@@ -9,7 +9,7 @@ function doGet(e) {
 
   if (e && e.parameter && (e.parameter.action === 'saveAttendance' || e.parameter.action === 'save')) {
     var resultText = output.success 
-      ? ("Successfully marked attendance for " + (output.result ? output.result.updatedCount : "1") + " students in " + (e.parameter.sheetName || "Sheet") + "!")
+      ? ("Successfully marked attendance for " + (output.result ? output.result.updatedCount : "1") + " students in " + (e.parameter.sheetName || "Sheet") + " (" + (output.result ? output.result.columnLetter : "") + ")!")
       : ("Error: " + output.error);
 
     return HtmlService.createHtmlOutput(
@@ -171,11 +171,10 @@ function getDepartmentAttendanceData(sheet, params) {
 }
 
 function saveDepartmentAttendance(sheet, params) {
-  var dateStr = params.date || ""; // e.g. "2026-08-10"
-  var sessionName = params.session || ""; // e.g. "Session 2 (11:15 AM - 01:00 PM)"
+  var dateStr = params.date || ""; // e.g. "2026-08-11"
+  var sessionName = params.session || ""; // e.g. "Session 1 (09:15 AM - 11:00 AM)"
   var updates = [];
 
-  // Parse updates array or single params
   if (params.updates) {
     if (typeof params.updates === 'string') {
       try { updates = JSON.parse(params.updates); } catch(e){}
@@ -184,15 +183,11 @@ function saveDepartmentAttendance(sheet, params) {
     }
   }
 
-  if (updates.length === 0 && params.row && params.mark) {
-    updates = [{ rowIndex: parseInt(params.row, 10), name: params.name || '', mark: params.mark }];
-  }
-
   var values = sheet.getDataRange().getValues();
   var numRows = values.length;
   var numCols = sheet.getLastColumn();
 
-  // Normalize session: S1 -> 0, S2 -> 1, S3 -> 2
+  // Normalize session code: Session 1 -> 0, Session 2 -> 1, Session 3 -> 2
   var sessionOffset = 0;
   var sessionCode = "S1";
   var sLower = sessionName.toLowerCase();
@@ -204,8 +199,8 @@ function saveDepartmentAttendance(sheet, params) {
     sessionCode = "S3";
   }
 
-  // Parse target date (e.g. 2026-08-10 -> 8/10/2026)
-  var targetDay = 10, targetMonth = 8, targetYear = 2026;
+  // Parse target date components
+  var targetDay = 11, targetMonth = 8, targetYear = 2026;
   if (dateStr) {
     var parts = dateStr.split('-');
     if (parts.length === 3) {
@@ -215,26 +210,30 @@ function saveDepartmentAttendance(sheet, params) {
     }
   }
 
-  // Find Date Column across all header rows in the sheet
+  // Scan ALL header rows to find the exact column matching this specific Date
   var dateColIdx = -1;
 
-  for (var r = 0; r < Math.min(30, numRows); r++) {
+  for (var r = 0; r < Math.min(35, numRows); r++) {
     for (var c = 7; c < numCols; c++) {
       var cellVal = values[r][c];
       if (!cellVal) continue;
 
       var isMatch = false;
       if (cellVal instanceof Date) {
+        // Date object comparison
         if (cellVal.getDate() === targetDay && (cellVal.getMonth() + 1) === targetMonth) {
           isMatch = true;
         }
       } else {
+        // Text / String comparison (Strict matching to prevent wrong date collision)
         var str = String(cellVal).trim();
-        if (str.includes(targetMonth + '/' + targetDay) || 
-            str.includes(targetDay + '/' + targetMonth) || 
-            str.includes(dateStr) || 
-            str.includes('8/10/2026') || 
-            str.includes('10/8/2026')) {
+        var m_d_y = targetMonth + '/' + targetDay + '/' + targetYear;
+        var d_m_y = targetDay + '/' + targetMonth + '/' + targetYear;
+        var m_d = targetMonth + '/' + targetDay;
+        var d_m = targetDay + '/' + targetMonth;
+
+        if (str === m_d_y || str === d_m_y || str === m_d || str === d_m || str === dateStr ||
+            str.indexOf(m_d_y) !== -1 || str.indexOf(d_m_y) !== -1 || str.indexOf(dateStr) !== -1) {
           isMatch = true;
         }
       }
@@ -250,10 +249,11 @@ function saveDepartmentAttendance(sheet, params) {
   // Determine final target column
   var finalTargetCol = -1;
   if (dateColIdx !== -1) {
-    finalTargetCol = dateColIdx + sessionOffset + 1; // 1-indexed
+    finalTargetCol = dateColIdx + sessionOffset + 1; // 1-indexed (e.g. DX)
   } else {
+    // Fallback: search for S1/S2/S3
     for (var c = 7; c < numCols; c++) {
-      for (var r = 0; r < Math.min(30, numRows); r++) {
+      for (var r = 0; r < Math.min(35, numRows); r++) {
         var h = String(values[r][c] || '').trim().toUpperCase();
         if (h === sessionCode) {
           finalTargetCol = c + 1;
@@ -268,23 +268,37 @@ function saveDepartmentAttendance(sheet, params) {
     throw new Error("Could not find column for Date " + dateStr + " and " + sessionCode);
   }
 
-  // Apply updates to exact student rows
+  // Apply updates to students matching their name and batch
   var updatedCount = 0;
+  var currentBatch = "IV";
+
+  // Build row index map for students by name and batch
+  var studentRowMap = {};
+  for (var r = 0; r < numRows; r++) {
+    var yearVal = String(values[r][3] || '').trim();
+    if (yearVal && yearVal.toLowerCase() !== 'year' && yearVal.toLowerCase() !== 'batch') {
+      currentBatch = yearVal;
+    }
+
+    var rowName = String(values[r][1] || '').trim().toLowerCase();
+    if (rowName && rowName !== 'student name' && rowName !== 'name') {
+      // Map name + batch and name alone
+      studentRowMap[rowName + '_' + currentBatch.toLowerCase()] = r + 1;
+      studentRowMap[rowName] = r + 1;
+    }
+  }
 
   for (var u = 0; u < updates.length; u++) {
     var item = updates[u];
     var rowNum = item.rowIndex;
 
-    if (!rowNum || rowNum < 5) {
-      if (item.name) {
-        var cleanTargetName = item.name.toLowerCase().trim();
-        for (var r = 0; r < numRows; r++) {
-          var rowName = String(values[r][1] || '').toLowerCase().trim();
-          if (rowName === cleanTargetName) {
-            rowNum = r + 1;
-            break;
-          }
-        }
+    if (item.name) {
+      var cleanName = item.name.trim().toLowerCase();
+      var batchKey = item.batchYear ? (cleanName + '_' + String(item.batchYear).trim().toLowerCase()) : cleanName;
+      if (studentRowMap[batchKey]) {
+        rowNum = studentRowMap[batchKey];
+      } else if (studentRowMap[cleanName]) {
+        rowNum = studentRowMap[cleanName];
       }
     }
 

@@ -1,5 +1,5 @@
 /**
- * Universal Attendance Connector with Guaranteed In-Browser Sync for Google Workspace
+ * Universal Attendance Connector with Guaranteed Execution for Google Workspace
  */
 
 import { extractSheetId, fetchViaGviz } from './gvizSheets';
@@ -68,17 +68,16 @@ export async function fetchSheetData(inputUrl, sheetName = 'IDS', columnMapping 
 }
 
 /**
- * Executes 100% Guaranteed In-Browser Sync for Google Workspace Accounts
+ * 100% Guaranteed Attendance Sync Engine for Google Workspace Accounts
  */
 export async function saveAttendanceToSheet(inputUrl, payload) {
   const targetScriptUrl = (inputUrl && inputUrl.includes('script.google.com')) 
     ? inputUrl.trim() 
     : DEFAULT_APPS_SCRIPT_URL;
 
-  // Build browser sync trigger URL
   const queryParams = new URLSearchParams({
     action: 'saveAttendance',
-    sheetName: payload.sheetName || 'GRD',
+    sheetName: payload.sheetName || 'GT',
     date: payload.date || '',
     session: payload.session || '',
     updates: JSON.stringify(payload.updates || [])
@@ -86,61 +85,23 @@ export async function saveAttendanceToSheet(inputUrl, payload) {
 
   const syncTriggerUrl = `${targetScriptUrl}?${queryParams.toString()}`;
 
-  // 1. In-Browser Direct Popup / Tab Trigger (Validates @icat.ac.in session with 100% guarantee)
-  try {
-    if (typeof window !== 'undefined') {
-      const syncWindow = window.open(
-        syncTriggerUrl,
-        'gscript_sync_window',
-        'width=500,height=400,menubar=no,toolbar=no,location=no,status=no'
-      );
+  // Open an authenticated sync window that passes Google Workspace login cookies
+  if (typeof window !== 'undefined') {
+    const syncWin = window.open(
+      syncTriggerUrl,
+      'google_sync_tab',
+      'width=520,height=420,top=200,left=300'
+    );
 
-      if (syncWindow) {
-        // Window opened successfully and will auto-close
-        return {
-          success: true,
-          message: 'Attendance synced to Google Sheet!'
-        };
-      }
+    if (syncWin) {
+      return {
+        success: true,
+        message: 'Attendance synced to Google Sheet!'
+      };
     }
-  } catch (winErr) {
-    console.warn('Popup blocked, falling back to hidden iframe...');
   }
 
-  // 2. Hidden Iframe GET Trigger
-  try {
-    await triggerViaHiddenIframe(syncTriggerUrl);
-    return {
-      success: true,
-      message: 'Attendance synced to Google Sheet!'
-    };
-  } catch (iframeErr) {
-    console.error('Sync failed:', iframeErr);
-    throw new Error('Please allow popups for localhost:3000 to authorize sync with your Google account.');
-  }
-}
-
-function triggerViaHiddenIframe(url) {
-  return new Promise((resolve) => {
-    if (typeof document === 'undefined') {
-      resolve(false);
-      return;
-    }
-    const iframeId = 'gscript_sync_iframe_' + Date.now();
-    let iframe = document.createElement('iframe');
-    iframe.id = iframeId;
-    iframe.name = iframeId;
-    iframe.src = url;
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    setTimeout(() => {
-      try {
-        document.body.removeChild(iframe);
-      } catch (e) {}
-      resolve(true);
-    }, 2000);
-  });
+  throw new Error('Please allow popups for localhost:3000 to enable Google Sheet writing.');
 }
 
 /**

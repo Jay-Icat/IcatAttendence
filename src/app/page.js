@@ -343,6 +343,7 @@ export default function AttendancePage() {
         rowIndex: s.rowIndex,
         rollNo: s.rollNo || s.id,
         name: s.name,
+        batchYear: s.batchYear,
         mark: currentAttendance[s.id]
       }));
 
