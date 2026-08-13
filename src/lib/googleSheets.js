@@ -94,6 +94,15 @@ export async function saveAttendanceToSheet(inputUrl, payload) {
     );
 
     if (syncWin) {
+      // Auto-close popup window after Google Apps Script finishes writing
+      setTimeout(() => {
+        try {
+          if (syncWin && !syncWin.closed) {
+            syncWin.close();
+          }
+        } catch (e) {}
+      }, 2500);
+
       return {
         success: true,
         message: 'Attendance synced to Google Sheet!'

@@ -15,15 +15,16 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(
       '<!DOCTYPE html>' +
       '<html><head><title>Attendance Synced</title><meta charset="utf-8"></head>' +
-      '<body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;text-align:center;padding:50px 20px;background:#0f172a;color:#f8fafc;">' +
-      '  <div style="max-width:480px;margin:0 auto;background:#1e293b;padding:30px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);">' +
-      '    <div style="font-size:48px;margin-bottom:12px;">' + (output.success ? '✅' : '❌') + '</div>' +
-      '    <h2 style="margin:0 0 10px 0;color:' + (output.success ? '#10b981' : '#ef4444') + ';">' + (output.success ? 'Attendance Synced!' : 'Sync Failed') + '</h2>' +
-      '    <p style="color:#94a3b8;font-size:14px;line-height:1.5;">' + resultText + '</p>' +
-      '    <p style="color:#64748b;font-size:12px;margin-top:20px;">Closing window in 2 seconds...</p>' +
+      '<body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;text-align:center;padding:40px 20px;background:#0f172a;color:#f8fafc;">' +
+      '  <div style="max-width:440px;margin:0 auto;background:#1e293b;padding:25px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);">' +
+      '    <div style="font-size:44px;margin-bottom:10px;">' + (output.success ? '✅' : '❌') + '</div>' +
+      '    <h2 style="margin:0 0 8px 0;color:' + (output.success ? '#10b981' : '#ef4444') + ';">' + (output.success ? 'Attendance Synced!' : 'Sync Failed') + '</h2>' +
+      '    <p style="color:#94a3b8;font-size:13px;line-height:1.5;margin-bottom:18px;">' + resultText + '</p>' +
+      '    <button onclick="tryClose()" style="background:#6366f1;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">Close Window</button>' +
       '  </div>' +
       '  <script>' +
-      '    setTimeout(function() { try { window.close(); } catch(e){} }, 2200);' +
+      '    function tryClose() { try { window.top.close(); } catch(e){} try { window.close(); } catch(e){} }' +
+      '    setTimeout(tryClose, 2000);' +
       '  </script>' +
       '</body></html>'
     );
