@@ -10,7 +10,8 @@ import {
   Send, 
   Loader2, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Link as LinkIcon
 } from 'lucide-react';
 
 import Header from '../components/Header';
@@ -28,7 +29,6 @@ import {
 } from '../lib/constants';
 import { fetchSheetData, saveAttendanceToSheet } from '../lib/googleSheets';
 import { ALL_DEPARTMENTS } from '../lib/gvizSheets';
-import { MOCK_SHEETS, MOCK_STUDENTS } from '../lib/mockData';
 
 export default function AttendancePage() {
   // Theme state
@@ -37,7 +37,10 @@ export default function AttendancePage() {
   // Sheet & Department State
   const [sheets, setSheets] = useState(ALL_DEPARTMENTS);
   const [activeSheet, setActiveSheet] = useState('GT');
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState('');
+  const [sheetUrlInput, setSheetUrlInput] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // Student & Batch Data
   const [students, setStudents] = useState([]);
@@ -59,12 +62,18 @@ export default function AttendancePage() {
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
-  // Initialize theme
+  // Initialize theme & sheet URL from localStorage or env
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
       setTheme(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
+
+      const savedUrl = DEFAULT_SHEET_URL || localStorage.getItem(STORAGE_KEYS.SHEET_URL) || localStorage.getItem(STORAGE_KEYS.SCRIPT_URL) || '';
+      if (savedUrl) {
+        setSheetUrl(savedUrl);
+        setSheetUrlInput(savedUrl);
+      }
     } catch (e) {}
   }, []);
 
@@ -78,12 +87,18 @@ export default function AttendancePage() {
   };
 
   // Load Department Data
-  const loadDepartmentData = async (sheetName) => {
+  const loadDepartmentData = async (targetSheet, customUrl = '') => {
     setIsLoading(true);
-    const targetUrl = DEFAULT_SHEET_URL || DEFAULT_APPS_SCRIPT_URL;
+    const activeUrl = customUrl || sheetUrl || DEFAULT_SHEET_URL || DEFAULT_APPS_SCRIPT_URL;
+
+    if (!activeUrl) {
+      setIsLoading(false);
+      setIsConnected(false);
+      return;
+    }
 
     try {
-      const data = await fetchSheetData(targetUrl, sheetName);
+      const data = await fetchSheetData(activeUrl, targetSheet);
       if (data.success && data.data) {
         setIsConnected(true);
         setStudents(data.data.students || []);
@@ -94,19 +109,38 @@ export default function AttendancePage() {
         }
       }
     } catch (err) {
-      console.warn('Using local fallback data for', sheetName, err);
-      const fallback = MOCK_STUDENTS[sheetName] || MOCK_STUDENTS['GT'] || [];
-      setStudents(fallback);
-      setBatches(['IV', 'III', 'II', 'I']);
+      console.warn('Could not load sheet data for', targetSheet, err);
+      setIsConnected(false);
+      setStudents([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Load initial sheet on mount
+  // Connect / Save Sheet URL
+  const handleConnectSheet = async (e) => {
+    if (e) e.preventDefault();
+    if (!sheetUrlInput.trim()) return;
+
+    setIsConnecting(true);
+    const cleanUrl = sheetUrlInput.trim();
+    setSheetUrl(cleanUrl);
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.SHEET_URL, cleanUrl);
+      localStorage.setItem(STORAGE_KEYS.SCRIPT_URL, cleanUrl);
+    } catch (err) {}
+
+    await loadDepartmentData(activeSheet, cleanUrl);
+    setIsConnecting(false);
+  };
+
+  // Load sheet when activeSheet changes or when sheetUrl is initialized
   useEffect(() => {
-    loadDepartmentData(activeSheet);
-  }, [activeSheet]);
+    if (sheetUrl) {
+      loadDepartmentData(activeSheet, sheetUrl);
+    }
+  }, [activeSheet, sheetUrl]);
 
   // Switch Department Tab
   const handleSelectSheet = (newSheet) => {
@@ -180,7 +214,7 @@ export default function AttendancePage() {
     };
 
     try {
-      const targetUrl = DEFAULT_APPS_SCRIPT_URL || DEFAULT_SHEET_URL;
+      const targetUrl = DEFAULT_APPS_SCRIPT_URL || sheetUrl;
       await saveAttendanceToSheet(targetUrl, payload);
 
       try {
@@ -220,6 +254,28 @@ export default function AttendancePage() {
           theme={theme}
           onToggleTheme={handleToggleTheme}
         />
+
+        {/* If no sheet connected yet -> Quick 1-line connection bar */}
+        {!isConnected && (
+          <form onSubmit={handleConnectSheet} className="glass-panel quick-connect-bar">
+            <LinkIcon size={16} className="connect-icon" />
+            <input
+              type="text"
+              placeholder="Paste your Google Sheet link (e.g. https://docs.google.com/spreadsheets/d/...)"
+              value={sheetUrlInput}
+              onChange={(e) => setSheetUrlInput(e.target.value)}
+              className="quick-connect-input"
+            />
+            <button
+              type="submit"
+              className="btn btn-connect-action"
+              disabled={isConnecting || !sheetUrlInput.trim()}
+            >
+              {isConnecting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              <span>{isConnecting ? 'Connecting...' : 'Connect'}</span>
+            </button>
+          </form>
+        )}
 
         {/* If Today is Saturday or Sunday -> Weekend Screen */}
         {isTodayWeekend ? (
@@ -311,7 +367,7 @@ export default function AttendancePage() {
                 </div>
               ) : filteredStudents.length === 0 ? (
                 <div className="student-list-empty">
-                  <span>No students found in this batch.</span>
+                  <span>No students found. Please connect your Google Sheet.</span>
                 </div>
               ) : (
                 <div className="student-rows-wrapper">

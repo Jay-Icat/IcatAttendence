@@ -34,7 +34,9 @@ export const DEFAULT_SESSIONS = [
   { code: 'S3', label: 'S3 (02:00 - 04:00 PM)', name: 'Session 3 (02:00 PM - 04:00 PM)' }
 ];
 
-export const DEFAULT_SHEET_URL = process.env.NEXT_PUBLIC_SHEET_URL || '';
+const envSheet = process.env.NEXT_PUBLIC_SHEET_URL || '';
+export const DEFAULT_SHEET_URL = (envSheet && !envSheet.includes('1ABC123xyz') && !envSheet.includes('YOUR_SHEET_ID')) ? envSheet : '';
+
 export const DEFAULT_APPS_SCRIPT_URL = 
   process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || 
   'https://script.google.com/macros/s/AKfycby9IEHhQ4yei1Du7y2LG_mFnqD5jP5Cj3b8lu4Ip84Ni1dkKDbQkWlueV-klVHFGRgxtw/exec';
@@ -45,7 +47,6 @@ export function getSmartCurrentSession() {
   const minutes = now.getMinutes();
   const totalMinutes = hours * 60 + minutes;
 
-  // 09:15 AM = 555 mins, 11:15 AM = 675 mins, 02:00 PM = 840 mins
   if (totalMinutes < 675) {
     return 'S1';
   } else if (totalMinutes < 840) {
@@ -57,7 +58,7 @@ export function getSmartCurrentSession() {
 
 export function isWeekend(date = new Date()) {
   const day = date.getDay();
-  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+  return day === 0 || day === 6;
 }
 
 export function getFormattedToday() {
@@ -76,5 +77,7 @@ export function getTodayISODate() {
 
 export const STORAGE_KEYS = {
   THEME: 'autoattend_theme',
-  ACTIVE_SHEET: 'autoattend_active_dept'
+  ACTIVE_SHEET: 'autoattend_active_dept',
+  SHEET_URL: 'autoattend_sheet_url',
+  SCRIPT_URL: 'autoattend_script_url'
 };
