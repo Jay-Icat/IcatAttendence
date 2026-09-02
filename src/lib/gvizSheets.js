@@ -150,3 +150,70 @@ export async function fetchViaGviz(sheetId, sheetName = 'IDS', headerRow = 5) {
     }
   };
 }
+
+export async function fetchHelperList(sheetId, sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+
+    const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
+    if (!jsonMatch || !jsonMatch[1]) {
+      return [];
+    }
+
+    const rawData = JSON.parse(jsonMatch[1]);
+    if (rawData.status === 'error') {
+      return [];
+    }
+
+    const rows = rawData.table.rows || [];
+    const list = [];
+    
+    for (let r = 0; r < rows.length; r++) {
+      const rowCells = rows[r]?.c || [];
+      let val = '';
+      
+      if (sheetName === 'Helper_Modules') {
+        const semVal = String(rowCells[3]?.v !== undefined && rowCells[3]?.v !== null ? rowCells[3].v : '').trim();
+        const semNum = parseInt(semVal, 10);
+        
+        // Skip if not an odd semester
+        if (isNaN(semNum) || semNum % 2 === 0) {
+          continue;
+        }
+        
+        // Column H is index 7
+        val = String(rowCells[7]?.v !== undefined && rowCells[7]?.v !== null ? rowCells[7].v : '').trim();
+      } else {
+        const colA = String(rowCells[0]?.v !== undefined && rowCells[0]?.v !== null ? rowCells[0].v : '').trim();
+        const colB = String(rowCells[1]?.v !== undefined && rowCells[1]?.v !== null ? rowCells[1].v : '').trim();
+        
+        // Use Column B (Name/Title) if it exists, otherwise fallback to Column A
+        val = colB || colA;
+      }
+      
+      if (val && 
+          val.toLowerCase() !== 'module' && 
+          val.toLowerCase() !== 'modules' && 
+          val.toLowerCase() !== 'module title' && 
+          val.toLowerCase() !== 'full module title' && 
+          val.toLowerCase() !== 'tutor' && 
+          val.toLowerCase() !== 'tutors' &&
+          val.toLowerCase() !== 'name' &&
+          val.toLowerCase() !== 'title' &&
+          val.toLowerCase() !== 'sr. no' &&
+          val.toLowerCase() !== 's.no' &&
+          val.toLowerCase() !== 's.no.') {
+        list.push(val);
+      }
+    }
+    
+    return list;
+  } catch (err) {
+    console.warn(`Failed to fetch helper list ${sheetName}:`, err);
+    return [];
+  }
+}
+

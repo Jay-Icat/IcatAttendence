@@ -2,8 +2,23 @@
  * Universal Attendance Connector with Guaranteed Execution for Google Workspace
  */
 
-import { extractSheetId, fetchViaGviz } from './gvizSheets';
+import { extractSheetId, fetchViaGviz, fetchHelperList } from './gvizSheets';
 import { DEFAULT_APPS_SCRIPT_URL } from './constants';
+
+export async function fetchHelpersData(inputUrl) {
+  if (!inputUrl) return { modules: [], tutors: [] };
+  
+  const clean = inputUrl.trim();
+  const sheetId = extractSheetId(clean);
+  
+  if (sheetId) {
+    const modules = await fetchHelperList(sheetId, 'Helper_Modules');
+    const tutors = await fetchHelperList(sheetId, 'Helper_Tutors');
+    return { modules, tutors };
+  }
+  
+  return { modules: [], tutors: [] };
+}
 
 export async function testConnection(inputUrl) {
   if (!inputUrl) {
@@ -80,6 +95,8 @@ export async function saveAttendanceToSheet(inputUrl, payload) {
     sheetName: payload.sheetName || 'GT',
     date: payload.date || '',
     session: payload.session || '',
+    moduleTitle: payload.moduleTitle || '',
+    moduleTutor: payload.moduleTutor || '',
     updates: JSON.stringify(payload.updates || [])
   });
 

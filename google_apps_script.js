@@ -269,6 +269,37 @@ function saveDepartmentAttendance(sheet, params) {
     throw new Error("Could not find column for Date " + dateStr + " and " + sessionCode);
   }
 
+  var moduleTitle = params.moduleTitle || "";
+  var moduleTutor = params.moduleTutor || "";
+
+  // Look for Module title and Module tutor rows
+  var titleRowIdx = -1;
+  var tutorRowIdx = -1;
+
+  for (var i = 0; i < Math.min(10, numRows); i++) {
+    var c1 = String(values[i][0] || '').toLowerCase().trim();
+    var c2 = String(values[i][1] || '').toLowerCase().trim();
+    var fullRowCheck = c1 + " " + c2;
+    
+    if (fullRowCheck.includes("module title")) {
+      titleRowIdx = i + 1;
+    }
+    if (fullRowCheck.includes("module tutor")) {
+      tutorRowIdx = i + 1;
+    }
+  }
+
+  if (titleRowIdx !== -1 && moduleTitle) {
+    var titleCell = sheet.getRange(titleRowIdx, finalTargetCol);
+    titleCell.setValue(moduleTitle);
+    titleCell.setHorizontalAlignment("center");
+  }
+  if (tutorRowIdx !== -1 && moduleTutor) {
+    var tutorCell = sheet.getRange(tutorRowIdx, finalTargetCol);
+    tutorCell.setValue(moduleTutor);
+    tutorCell.setHorizontalAlignment("center");
+  }
+
   // Apply updates to students matching their name and batch
   var updatedCount = 0;
   var currentBatch = "IV";

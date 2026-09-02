@@ -27,7 +27,7 @@ import {
   getFormattedToday, 
   getTodayISODate 
 } from '../lib/constants';
-import { fetchSheetData, saveAttendanceToSheet } from '../lib/googleSheets';
+import { fetchSheetData, saveAttendanceToSheet, fetchHelpersData } from '../lib/googleSheets';
 import { ALL_DEPARTMENTS } from '../lib/gvizSheets';
 
 export default function AttendancePage() {
@@ -41,6 +41,12 @@ export default function AttendancePage() {
   const [sheetUrl, setSheetUrl] = useState('');
   const [sheetUrlInput, setSheetUrlInput] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Helper State (Modules & Tutors)
+  const [modulesList, setModulesList] = useState([]);
+  const [tutorsList, setTutorsList] = useState([]);
+  const [selectedModule, setSelectedModule] = useState('');
+  const [selectedTutor, setSelectedTutor] = useState('');
 
   // Student & Batch Data
   const [students, setStudents] = useState([]);
@@ -99,6 +105,11 @@ export default function AttendancePage() {
 
     try {
       const data = await fetchSheetData(activeUrl, targetSheet);
+      const helpers = await fetchHelpersData(activeUrl);
+      
+      setModulesList(helpers.modules || []);
+      setTutorsList(helpers.tutors || []);
+      
       if (data.success && data.data) {
         setIsConnected(true);
         setStudents(data.data.students || []);
@@ -206,11 +217,25 @@ export default function AttendancePage() {
 
     const sessionObj = DEFAULT_SESSIONS.find((s) => s.code === selectedSession) || DEFAULT_SESSIONS[0];
 
+    // Basic validation
+    if (modulesList.length > 0 && !selectedModule) {
+      setSyncError('Please select a Module Title');
+      setTimeout(() => setSyncError(null), 3000);
+      return;
+    }
+    if (tutorsList.length > 0 && !selectedTutor) {
+      setSyncError('Please select a Module Tutor');
+      setTimeout(() => setSyncError(null), 3000);
+      return;
+    }
+
     const payload = {
       sheetName: activeSheet,
       date: todayISO,
       session: sessionObj.name,
       sessionCode: selectedSession,
+      moduleTitle: selectedModule,
+      moduleTutor: selectedTutor,
       updates
     };
 
@@ -350,6 +375,34 @@ export default function AttendancePage() {
                 </div>
               </div>
             </div>
+
+            {/* Helper Selectors (Module & Tutor) */}
+            {isConnected && (modulesList.length > 0 || tutorsList.length > 0) && (
+              <div className="glass-panel helpers-bar">
+                <div className="helper-group">
+                  <span className="helper-label">Module:</span>
+                  <select 
+                    className="helper-select"
+                    value={selectedModule}
+                    onChange={(e) => setSelectedModule(e.target.value)}
+                  >
+                    <option value="">-- Select Module --</option>
+                    {modulesList.map((m, i) => <option key={i} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="helper-group">
+                  <span className="helper-label">Tutor:</span>
+                  <select 
+                    className="helper-select"
+                    value={selectedTutor}
+                    onChange={(e) => setSelectedTutor(e.target.value)}
+                  >
+                    <option value="">-- Select Tutor --</option>
+                    {tutorsList.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {/* Students Row-Based List */}
             <div className="glass-panel student-list-container">
