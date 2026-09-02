@@ -345,7 +345,7 @@ export default function AttendancePage() {
                     >
                       {batches.map((b) => (
                         <option key={b} value={b}>
-                          Batch {b}
+                          {b}
                         </option>
                       ))}
                     </select>

@@ -123,16 +123,31 @@ function getDepartmentAttendanceData(sheet, params) {
 
   var students = [];
   var batchYears = {};
+  var currentDept = "General";
   var currentBatch = "IV";
+  var combinedBatch = "General - IV";
 
   for (var r = 0; r < values.length; r++) {
     var idVal = String(values[r][0] !== undefined && values[r][0] !== null ? values[r][0] : '').trim();
     var nameVal = String(values[r][1] !== undefined && values[r][1] !== null ? values[r][1] : '').trim();
+    var deptVal = String(values[r][2] !== undefined && values[r][2] !== null ? values[r][2] : '').trim();
     var yearVal = String(values[r][3] !== undefined && values[r][3] !== null ? values[r][3] : '').trim();
 
-    if (yearVal && yearVal.toLowerCase() !== 'year' && yearVal.toLowerCase() !== 'batch') {
+    var deptUpdated = false;
+    if (deptVal && deptVal.toLowerCase() !== 'dept' && deptVal.toLowerCase() !== 'department') {
+      currentDept = deptVal;
+      deptUpdated = true;
+    }
+
+    var yearUpdated = false;
+    if (yearVal && yearVal.toLowerCase() !== 'year' && yearVal.toLowerCase() !== 'batch' && yearVal.toLowerCase() !== 'sem') {
       currentBatch = yearVal;
-      batchYears[currentBatch] = true;
+      yearUpdated = true;
+    }
+    
+    if (deptUpdated || yearUpdated) {
+      combinedBatch = currentDept + " - " + currentBatch;
+      batchYears[combinedBatch] = true;
     }
 
     var lower = nameVal.toLowerCase();
@@ -156,7 +171,7 @@ function getDepartmentAttendanceData(sheet, params) {
       id: "std_" + sheet.getName() + "_r" + (r + 1),
       rollNo: idVal || String(students.length + 1),
       name: nameVal,
-      batchYear: currentBatch,
+      batchYear: combinedBatch,
       history: {}
     });
   }
@@ -214,7 +229,7 @@ function saveDepartmentAttendance(sheet, params) {
   // Scan ALL header rows to find the exact column matching this specific Date
   var dateColIdx = -1;
 
-  for (var r = 0; r < Math.min(35, numRows); r++) {
+  for (var r = 0; r < Math.min(200, numRows); r++) {
     for (var c = 7; c < numCols; c++) {
       var cellVal = values[r][c];
       if (!cellVal) continue;
@@ -222,7 +237,7 @@ function saveDepartmentAttendance(sheet, params) {
       var isMatch = false;
       if (cellVal instanceof Date) {
         // Date object comparison
-        if (cellVal.getDate() === targetDay && (cellVal.getMonth() + 1) === targetMonth) {
+        if (cellVal.getDate() === targetDay && (cellVal.getMonth() + 1) === targetMonth && cellVal.getFullYear() === targetYear) {
           isMatch = true;
         }
       } else {
@@ -254,7 +269,7 @@ function saveDepartmentAttendance(sheet, params) {
   } else {
     // Fallback: search for S1/S2/S3
     for (var c = 7; c < numCols; c++) {
-      for (var r = 0; r < Math.min(35, numRows); r++) {
+      for (var r = 0; r < Math.min(200, numRows); r++) {
         var h = String(values[r][c] || '').trim().toUpperCase();
         if (h === sessionCode) {
           finalTargetCol = c + 1;
@@ -269,55 +284,38 @@ function saveDepartmentAttendance(sheet, params) {
     throw new Error("Could not find column for Date " + dateStr + " and " + sessionCode);
   }
 
-  var moduleTitle = params.moduleTitle || "";
-  var moduleTutor = params.moduleTutor || "";
-
-  // Look for the session cell ('S1', 'S2', 'S3') in the target column to establish the vertical pattern
-  var sessionRowIdx = -1;
-  var colIndexZeroBased = finalTargetCol - 1;
-  
-  for (var i = 0; i < Math.min(15, numRows); i++) {
-    var cellValue = String(values[i][colIndexZeroBased] || '').trim().toUpperCase();
-    if (cellValue === 'S1' || cellValue === 'S2' || cellValue === 'S3') {
-      sessionRowIdx = i + 1; // 1-indexed
-      break;
-    }
-  }
-
-  // According to pattern: session row is at sessionRowIdx, tutor is sessionRowIdx - 1, title is sessionRowIdx - 2
-  if (sessionRowIdx > 2) {
-    if (moduleTitle) {
-      var titleCell = sheet.getRange(sessionRowIdx - 2, finalTargetCol);
-      titleCell.setValue(moduleTitle);
-      titleCell.setHorizontalAlignment("center");
-    }
-    if (moduleTutor) {
-      var tutorCell = sheet.getRange(sessionRowIdx - 1, finalTargetCol);
-      tutorCell.setValue(moduleTutor);
-      tutorCell.setHorizontalAlignment("center");
-    }
-  }
-
-  // Apply updates to students matching their name and batch
-  var updatedCount = 0;
-  var currentBatch = "IV";
-
   // Build row index map for students by name and batch
   var studentRowMap = {};
+  var currentDept = "General";
+  var currentBatch = "IV";
   for (var r = 0; r < numRows; r++) {
+    var deptVal = String(values[r][2] || '').trim();
+    if (deptVal && deptVal.toLowerCase() !== 'dept' && deptVal.toLowerCase() !== 'department') {
+      currentDept = deptVal;
+    }
+
     var yearVal = String(values[r][3] || '').trim();
-    if (yearVal && yearVal.toLowerCase() !== 'year' && yearVal.toLowerCase() !== 'batch') {
+    if (yearVal && yearVal.toLowerCase() !== 'year' && yearVal.toLowerCase() !== 'batch' && yearVal.toLowerCase() !== 'sem') {
       currentBatch = yearVal;
     }
 
     var rowName = String(values[r][1] || '').trim().toLowerCase();
     if (rowName && rowName !== 'student name' && rowName !== 'name') {
-      // Map name + batch and name alone
+      var combinedBatch = currentDept + " - " + currentBatch;
+      
+      // Map name + full combined batch (e.g. "GDD - I")
+      studentRowMap[rowName + '_' + combinedBatch.toLowerCase()] = r + 1;
+      // Also map name + just batch as fallback (e.g. "I")
       studentRowMap[rowName + '_' + currentBatch.toLowerCase()] = r + 1;
+      // Map name alone
       studentRowMap[rowName] = r + 1;
     }
   }
 
+  // Resolve target rows for all updates
+  var minUpdateRow = -1;
+  var resolvedUpdates = [];
+  
   for (var u = 0; u < updates.length; u++) {
     var item = updates[u];
     var rowNum = item.rowIndex;
@@ -332,11 +330,67 @@ function saveDepartmentAttendance(sheet, params) {
       }
     }
 
-    if (rowNum && item.mark) {
-      var cell = sheet.getRange(rowNum, finalTargetCol);
-      cell.setValue(item.mark);
+    if (rowNum) {
+      rowNum = parseInt(rowNum, 10);
+      resolvedUpdates.push({ rowNum: rowNum, mark: item.mark });
+      if (minUpdateRow === -1 || rowNum < minUpdateRow) {
+        minUpdateRow = rowNum;
+      }
+    }
+  }
+
+  var moduleTitle = params.moduleTitle || "";
+  var moduleTutor = params.moduleTutor || "";
+
+  // Dynamic Anchor: Scan UPWARDS from the first updated student to find their specific S1/S2/S3 header
+  var sessionRowIdx = -1;
+  var colIndexZeroBased = finalTargetCol - 1;
+  
+  // Start from the row just above the first student, all the way up to row 1
+  var startScanIdx = (minUpdateRow !== -1) ? (minUpdateRow - 2) : Math.min(30, numRows - 1); 
+  
+  for (var i = startScanIdx; i >= 0; i--) {
+    var cellValue = String(values[i][colIndexZeroBased] || '').trim().toUpperCase();
+    if (cellValue === 'S1' || cellValue === 'S2' || cellValue === 'S3') {
+      sessionRowIdx = i + 1; // 1-indexed
+      break;
+    }
+  }
+
+  // If upward scan failed, fallback to scanning downwards from top (legacy)
+  if (sessionRowIdx === -1) {
+    for (var i = 0; i < Math.min(200, numRows); i++) {
+      var cellValue = String(values[i][colIndexZeroBased] || '').trim().toUpperCase();
+      if (cellValue === 'S1' || cellValue === 'S2' || cellValue === 'S3') {
+        sessionRowIdx = i + 1; // 1-indexed
+        break;
+      }
+    }
+  }
+
+  // Write Title and Tutor to the cells directly above the anchor
+  if (sessionRowIdx > 2) {
+    if (moduleTitle) {
+      var titleCell = sheet.getRange(sessionRowIdx - 2, finalTargetCol);
+      titleCell.setValue(moduleTitle);
+      titleCell.setHorizontalAlignment("center");
+    }
+    if (moduleTutor) {
+      var tutorCell = sheet.getRange(sessionRowIdx - 1, finalTargetCol);
+      tutorCell.setValue(moduleTutor);
+      tutorCell.setHorizontalAlignment("center");
+    }
+  }
+
+  // Write attendance marks
+  var updatedCount = 0;
+  for (var ru = 0; ru < resolvedUpdates.length; ru++) {
+    var rData = resolvedUpdates[ru];
+    if (rData.mark) {
+      var cell = sheet.getRange(rData.rowNum, finalTargetCol);
+      cell.setValue(rData.mark);
       cell.setHorizontalAlignment("center");
-      applyStatusColor(cell, item.mark);
+      applyStatusColor(cell, rData.mark);
       updatedCount++;
     }
   }

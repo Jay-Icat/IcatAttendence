@@ -75,7 +75,8 @@ export async function fetchViaGviz(sheetId, sheetName = 'IDS', headerRow = 5) {
   // Parse students list (Col A = Roll No/ID, Col B = Student Name, Col D = Batch Year)
   const students = [];
   const batchYears = {};
-  let activeBatchYear = 'General';
+  let activeDept = 'General';
+  let activeYear = 'Batch';
 
   for (let r = 0; r < rows.length; r++) {
     const rowCells = rows[r]?.c || [];
@@ -84,17 +85,23 @@ export async function fetchViaGviz(sheetId, sheetName = 'IDS', headerRow = 5) {
     const deptVal = String(rowCells[2]?.v !== undefined && rowCells[2]?.v !== null ? rowCells[2].v : '').trim();
     const yearVal = String(rowCells[3]?.v !== undefined && rowCells[3]?.v !== null ? rowCells[3].v : '').trim();
 
-    // Update active batch year whenever specified
+    const lowerName = nameVal.toLowerCase().trim();
+    const lowerDept = deptVal.toLowerCase().trim();
+
+    // Update active department whenever specified
+    if (deptVal && lowerDept !== 'dept' && lowerDept !== 'department') {
+      activeDept = deptVal;
+    }
+
+    // Update active year whenever specified
     if (yearVal && 
         yearVal.toLowerCase() !== 'year' && 
         yearVal.toLowerCase() !== 'batch' && 
         yearVal.toLowerCase() !== 'sem') {
-      activeBatchYear = yearVal;
-      batchYears[activeBatchYear] = true;
+      activeYear = yearVal;
     }
 
-    const lowerName = nameVal.toLowerCase().trim();
-    const lowerDept = deptVal.toLowerCase().trim();
+
 
     // Skip empty or table header rows, or if Dept is missing/invalid
     if (!nameVal || 
@@ -127,6 +134,9 @@ export async function fetchViaGviz(sheetId, sheetName = 'IDS', headerRow = 5) {
 
     // Unique ID per student
     const uniqueStudentId = `std_${sheetName}_r${r + 1}_${idVal || students.length + 1}`;
+
+    const activeBatchYear = `${activeDept} - ${activeYear}`;
+    batchYears[activeBatchYear] = true;
 
     students.push({
       rowIndex: r + 1,
