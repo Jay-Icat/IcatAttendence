@@ -272,32 +272,30 @@ function saveDepartmentAttendance(sheet, params) {
   var moduleTitle = params.moduleTitle || "";
   var moduleTutor = params.moduleTutor || "";
 
-  // Look for Module title and Module tutor rows
-  var titleRowIdx = -1;
-  var tutorRowIdx = -1;
-
-  for (var i = 0; i < Math.min(10, numRows); i++) {
-    var c1 = String(values[i][0] || '').toLowerCase().trim();
-    var c2 = String(values[i][1] || '').toLowerCase().trim();
-    var fullRowCheck = c1 + " " + c2;
-    
-    if (fullRowCheck.includes("module title")) {
-      titleRowIdx = i + 1;
-    }
-    if (fullRowCheck.includes("module tutor")) {
-      tutorRowIdx = i + 1;
+  // Look for the session cell ('S1', 'S2', 'S3') in the target column to establish the vertical pattern
+  var sessionRowIdx = -1;
+  var colIndexZeroBased = finalTargetCol - 1;
+  
+  for (var i = 0; i < Math.min(15, numRows); i++) {
+    var cellValue = String(values[i][colIndexZeroBased] || '').trim().toUpperCase();
+    if (cellValue === 'S1' || cellValue === 'S2' || cellValue === 'S3') {
+      sessionRowIdx = i + 1; // 1-indexed
+      break;
     }
   }
 
-  if (titleRowIdx !== -1 && moduleTitle) {
-    var titleCell = sheet.getRange(titleRowIdx, finalTargetCol);
-    titleCell.setValue(moduleTitle);
-    titleCell.setHorizontalAlignment("center");
-  }
-  if (tutorRowIdx !== -1 && moduleTutor) {
-    var tutorCell = sheet.getRange(tutorRowIdx, finalTargetCol);
-    tutorCell.setValue(moduleTutor);
-    tutorCell.setHorizontalAlignment("center");
+  // According to pattern: session row is at sessionRowIdx, tutor is sessionRowIdx - 1, title is sessionRowIdx - 2
+  if (sessionRowIdx > 2) {
+    if (moduleTitle) {
+      var titleCell = sheet.getRange(sessionRowIdx - 2, finalTargetCol);
+      titleCell.setValue(moduleTitle);
+      titleCell.setHorizontalAlignment("center");
+    }
+    if (moduleTutor) {
+      var tutorCell = sheet.getRange(sessionRowIdx - 1, finalTargetCol);
+      tutorCell.setValue(moduleTutor);
+      tutorCell.setHorizontalAlignment("center");
+    }
   }
 
   // Apply updates to students matching their name and batch
