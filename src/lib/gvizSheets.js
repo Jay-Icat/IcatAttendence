@@ -81,6 +81,7 @@ export async function fetchViaGviz(sheetId, sheetName = 'IDS', headerRow = 5) {
     const rowCells = rows[r]?.c || [];
     const idVal = String(rowCells[0]?.v !== undefined && rowCells[0]?.v !== null ? rowCells[0].v : '').trim();
     const nameVal = String(rowCells[1]?.v !== undefined && rowCells[1]?.v !== null ? rowCells[1].v : '').trim();
+    const deptVal = String(rowCells[2]?.v !== undefined && rowCells[2]?.v !== null ? rowCells[2].v : '').trim();
     const yearVal = String(rowCells[3]?.v !== undefined && rowCells[3]?.v !== null ? rowCells[3].v : '').trim();
 
     // Update active batch year whenever specified
@@ -93,9 +94,13 @@ export async function fetchViaGviz(sheetId, sheetName = 'IDS', headerRow = 5) {
     }
 
     const lowerName = nameVal.toLowerCase().trim();
+    const lowerDept = deptVal.toLowerCase().trim();
 
-    // Skip empty or table header rows
+    // Skip empty or table header rows, or if Dept is missing/invalid
     if (!nameVal || 
+        !deptVal || // <-- Require a department to be specified
+        lowerDept === 'dept' ||
+        lowerDept === 'department' ||
         lowerName === 'student name' || 
         lowerName === 'student_name' || 
         lowerName === 'student' || 

@@ -104,8 +104,10 @@ export default function AttendancePage() {
         setStudents(data.data.students || []);
         if (data.data.batches && data.data.batches.length > 0) {
           setBatches(data.data.batches);
+          setSelectedBatch(data.data.batches[0]);
         } else {
           setBatches(['IV', 'III', 'II', 'I']);
+          setSelectedBatch('IV');
         }
       }
     } catch (err) {
@@ -146,7 +148,6 @@ export default function AttendancePage() {
   const handleSelectSheet = (newSheet) => {
     setActiveSheet(newSheet);
     setCurrentAttendance({});
-    setSelectedBatch('ALL');
   };
 
   // Single Student Status Change (P, A, OD)
@@ -317,7 +318,6 @@ export default function AttendancePage() {
                       value={selectedBatch}
                       onChange={(e) => setSelectedBatch(e.target.value)}
                     >
-                      <option value="ALL">All Batches</option>
                       {batches.map((b) => (
                         <option key={b} value={b}>
                           Batch {b}

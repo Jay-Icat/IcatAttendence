@@ -34,8 +34,8 @@ export const DEFAULT_SESSIONS = [
   { code: 'S3', label: 'S3 (02:00 - 04:00 PM)', name: 'Session 3 (02:00 PM - 04:00 PM)' }
 ];
 
-const envSheet = process.env.NEXT_PUBLIC_SHEET_URL || '';
-export const DEFAULT_SHEET_URL = (envSheet && !envSheet.includes('1ABC123xyz') && !envSheet.includes('YOUR_SHEET_ID')) ? envSheet : '';
+// Hardcoded as requested
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1GR9hWCoRSDntN-oOtdx83hio_7Ol4RvDNRhVGH4310s/edit?gid=1032342523#gid=1032342523';
 
 export const DEFAULT_APPS_SCRIPT_URL = 
   process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || 
