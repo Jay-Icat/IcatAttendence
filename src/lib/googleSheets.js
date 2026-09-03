@@ -4,6 +4,7 @@
 
 import { extractSheetId, fetchViaGviz, fetchHelperList } from './gvizSheets';
 import { DEFAULT_APPS_SCRIPT_URL } from './constants';
+import { Logger } from './logger';
 
 export async function fetchHelpersData(inputUrl) {
   if (!inputUrl) return { modules: [], tutors: [] };
@@ -41,6 +42,7 @@ export async function testConnection(inputUrl) {
         sheetId: sheetId
       };
     } catch (gvizErr) {
+      Logger.exception("Could not access Google Sheet via GViz. Access Denied.", gvizErr.message);
       throw new Error("Could not access Google Sheet. Please make sure the sheet sharing is set to 'Anyone with link can view' or 'Anyone in icat.ac.in can view'.");
     }
   }

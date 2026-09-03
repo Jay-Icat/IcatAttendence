@@ -28,6 +28,7 @@ import {
   getTodayISODate 
 } from '../lib/constants';
 import { fetchSheetData, saveAttendanceToSheet, fetchHelpersData } from '../lib/googleSheets';
+import { Logger } from "../lib/logger";
 import { ALL_DEPARTMENTS } from '../lib/gvizSheets';
 
 export default function AttendancePage() {
@@ -39,6 +40,7 @@ export default function AttendancePage() {
   const [activeSheet, setActiveSheet] = useState('GT');
   const [isConnected, setIsConnected] = useState(false);
   const [sheetUrl, setSheetUrl] = useState('');
+  const [scriptUrl, setScriptUrl] = useState('');
   const [sheetUrlInput, setSheetUrlInput] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -75,10 +77,14 @@ export default function AttendancePage() {
       setTheme(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
 
-      const savedUrl = localStorage.getItem(STORAGE_KEYS.SHEET_URL) || localStorage.getItem(STORAGE_KEYS.SCRIPT_URL) || DEFAULT_SHEET_URL || '';
-      if (savedUrl) {
-        setSheetUrl(savedUrl);
-        setSheetUrlInput(savedUrl);
+      const savedSheetUrl = localStorage.getItem(STORAGE_KEYS.SHEET_URL) || DEFAULT_SHEET_URL || '';
+      const savedScriptUrl = localStorage.getItem(STORAGE_KEYS.SCRIPT_URL) || '';
+      if (savedSheetUrl) {
+        setSheetUrl(savedSheetUrl);
+        setSheetUrlInput(savedSheetUrl);
+      }
+      if (savedScriptUrl) {
+        setScriptUrl(savedScriptUrl);
       }
     } catch (e) {}
   }, []);
@@ -122,7 +128,7 @@ export default function AttendancePage() {
         }
       }
     } catch (err) {
-      console.warn('Could not load sheet data for', targetSheet, err);
+      Logger.warn(`Could not load sheet data for ${targetSheet}`, err.message);
       setIsConnected(false);
       setStudents([]);
     } finally {
@@ -229,6 +235,7 @@ export default function AttendancePage() {
       return;
     }
 
+    Logger.info(`Starting sync for ${activeSheet}, Session: ${selectedSession}, Marked: ${markedCount}`);
     const payload = {
       sheetName: activeSheet,
       date: todayISO,
@@ -240,7 +247,7 @@ export default function AttendancePage() {
     };
 
     try {
-      const targetUrl = DEFAULT_APPS_SCRIPT_URL || sheetUrl;
+      const targetUrl = scriptUrl || DEFAULT_APPS_SCRIPT_URL;
       await saveAttendanceToSheet(targetUrl, payload);
 
       try {
@@ -251,10 +258,11 @@ export default function AttendancePage() {
         });
       } catch (e) {}
 
+      Logger.info(`Sync successful for ${activeSheet}!`);
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 4000);
     } catch (err) {
-      console.error('Sync failed:', err);
+      Logger.error(`Sync failed for ${activeSheet}`, err.message);
       setSyncError(err.message || 'Failed to sync to Google Sheet');
       setTimeout(() => setSyncError(null), 5000);
     } finally {
@@ -281,26 +289,21 @@ export default function AttendancePage() {
           onToggleTheme={handleToggleTheme}
         />
 
-        {/* If no sheet connected yet -> Quick 1-line connection bar */}
+                {/* Connection Status Handling */}
         {!isConnected && (
-          <form onSubmit={handleConnectSheet} className="glass-panel quick-connect-bar">
-            <LinkIcon size={16} className="connect-icon" />
-            <input
-              type="text"
-              placeholder="Paste your Google Sheet link (e.g. https://docs.google.com/spreadsheets/d/...)"
-              value={sheetUrlInput}
-              onChange={(e) => setSheetUrlInput(e.target.value)}
-              className="quick-connect-input"
-            />
-            <button
-              type="submit"
-              className="btn btn-connect-action"
-              disabled={isConnecting || !sheetUrlInput.trim()}
-            >
-              {isConnecting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              <span>{isConnecting ? 'Connecting...' : 'Connect'}</span>
-            </button>
-          </form>
+          <div className="glass-panel" style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "16px 20px", marginBottom: "20px", color: "var(--text-secondary)" }}>
+            {isLoading || isConnecting ? (
+              <>
+                <Loader2 size={18} className="animate-spin" style={{ marginRight: "10px" }} />
+                <span>Loading application data...</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle size={18} style={{ marginRight: "10px", color: "#ef4444" }} />
+                <span>Setup is not done or connection failed. Please visit your <a href="/admin" style={{ color: "var(--primary)", textDecoration: "underline" }}>Admin Dashboard</a> for this issue.</span>
+              </>
+            )}
+          </div>
         )}
 
         {/* If Today is Saturday or Sunday -> Weekend Screen */}
@@ -420,7 +423,7 @@ export default function AttendancePage() {
                 </div>
               ) : filteredStudents.length === 0 ? (
                 <div className="student-list-empty">
-                  <span>No students found. Please connect your Google Sheet.</span>
+                  <span>No students found. Ensure setup is completed in the Admin panel.</span>
                 </div>
               ) : (
                 <div className="student-rows-wrapper">
@@ -466,7 +469,7 @@ export default function AttendancePage() {
                   type="button"
                   className="btn btn-sync-primary"
                   onClick={handleSync}
-                  disabled={isSyncing || markedCount === 0}
+                  disabled={isSyncing || markedCount === 0 || (modulesList.length > 0 && !selectedModule) || (tutorsList.length > 0 && !selectedTutor)}
                 >
                   {isSyncing ? (
                     <>

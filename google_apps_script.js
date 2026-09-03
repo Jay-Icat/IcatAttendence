@@ -17,7 +17,7 @@ function doGet(e) {
       '<html><head><title>Attendance Synced</title><meta charset="utf-8"></head>' +
       '<body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;text-align:center;padding:40px 20px;background:#0f172a;color:#f8fafc;">' +
       '  <div style="max-width:440px;margin:0 auto;background:#1e293b;padding:25px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);">' +
-      '    <div style="font-size:44px;margin-bottom:10px;">' + (output.success ? '✅' : '❌') + '</div>' +
+      '    <div style="font-size:44px;margin-bottom:10px;">' + (output.success ? '뿯½œ…' : '뿯½뿯½Œ') + '</div>' +
       '    <h2 style="margin:0 0 8px 0;color:' + (output.success ? '#10b981' : '#ef4444') + ';">' + (output.success ? 'Attendance Synced!' : 'Sync Failed') + '</h2>' +
       '    <p style="color:#94a3b8;font-size:13px;line-height:1.5;margin-bottom:18px;">' + resultText + '</p>' +
       '    <button onclick="tryClose()" style="background:#6366f1;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">Close Window</button>' +
@@ -216,97 +216,82 @@ function saveDepartmentAttendance(sheet, params) {
   }
 
   // Parse target date components
-  var targetDay = 11, targetMonth = 8, targetYear = 2026;
-  if (dateStr) {
-    var parts = dateStr.split('-');
-    if (parts.length === 3) {
-      targetYear = parseInt(parts[0], 10);
-      targetMonth = parseInt(parts[1], 10);
-      targetDay = parseInt(parts[2], 10);
-    }
-  }
-
-  // Scan ALL header rows to find the exact column matching this specific Date
-  var dateColIdx = -1;
-
-  for (var r = 0; r < Math.min(200, numRows); r++) {
-    for (var c = 7; c < numCols; c++) {
-      var cellVal = values[r][c];
-      if (!cellVal) continue;
-
-      var isMatch = false;
-      if (cellVal instanceof Date) {
-        // Date object comparison
-        if (cellVal.getDate() === targetDay && (cellVal.getMonth() + 1) === targetMonth && cellVal.getFullYear() === targetYear) {
-          isMatch = true;
-        }
-      } else {
-        // Text / String comparison (Strict matching to prevent wrong date collision)
-        var str = String(cellVal).trim();
-        var m_d_y = targetMonth + '/' + targetDay + '/' + targetYear;
-        var d_m_y = targetDay + '/' + targetMonth + '/' + targetYear;
-        var m_d = targetMonth + '/' + targetDay;
-        var d_m = targetDay + '/' + targetMonth;
-
-        if (str === m_d_y || str === d_m_y || str === m_d || str === d_m || str === dateStr ||
-            str.indexOf(m_d_y) !== -1 || str.indexOf(d_m_y) !== -1 || str.indexOf(dateStr) !== -1) {
-          isMatch = true;
-        }
-      }
-
-      if (isMatch) {
-        dateColIdx = c;
-        break;
+    var targetDay = 11, targetMonth = 8, targetYear = 2026;
+    var targetDayName = "";
+    if (dateStr) {
+      var parts = dateStr.split('-');
+      if (parts.length === 3) {
+        targetYear = parseInt(parts[0], 10);
+        targetMonth = parseInt(parts[1], 10);
+        targetDay = parseInt(parts[2], 10);
+        var d = new Date(targetYear, targetMonth - 1, targetDay);
+        var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        targetDayName = days[d.getDay()];
       }
     }
-    if (dateColIdx !== -1) break;
-  }
 
-  // Determine final target column
-  var finalTargetCol = -1;
-  if (dateColIdx !== -1) {
-    finalTargetCol = dateColIdx + sessionOffset + 1; // 1-indexed (e.g. DX)
-  } else {
-    // Fallback: search for S1/S2/S3
-    for (var c = 7; c < numCols; c++) {
-      for (var r = 0; r < Math.min(200, numRows); r++) {
-        var h = String(values[r][c] || '').trim().toUpperCase();
-        if (h === sessionCode) {
-          finalTargetCol = c + 1;
+    // Scan ALL header rows to find the exact column matching this specific Date or Day Name
+    var dateColIdx = -1;
+    var maxHeaderScan = Math.min(200, numRows); // Look deeper to support multiple sections/semesters
+
+    for (var r = 0; r < maxHeaderScan; r++) {
+      for (var c = 7; c < numCols; c++) {
+        var cellVal = values[r][c];
+        if (!cellVal) continue;
+
+        var isMatch = false;
+        if (cellVal instanceof Date) {
+          // Date object comparison
+          if (cellVal.getDate() === targetDay && (cellVal.getMonth() + 1) === targetMonth) {
+            isMatch = true;
+          }
+        } else {
+          // Text / String comparison (Strict matching to prevent wrong date collision)
+          var str = String(cellVal).trim();
+          var m_d_y = targetMonth + '/' + targetDay + '/' + targetYear;
+          var d_m_y = targetDay + '/' + targetMonth + '/' + targetYear;
+          var m_d = targetMonth + '/' + targetDay;
+          var d_m = targetDay + '/' + targetMonth;
+
+          if (str === m_d_y || str === d_m_y || str === m_d || str === d_m || str === dateStr ||
+              str.indexOf(m_d_y) !== -1 || str.indexOf(d_m_y) !== -1 || str.indexOf(dateStr) !== -1) {
+            isMatch = true;
+          } else if (targetDayName && str.toLowerCase() === targetDayName.toLowerCase()) {
+            isMatch = true;
+          }
+        }
+
+        if (isMatch) {
+          dateColIdx = c;
           break;
         }
       }
-      if (finalTargetCol !== -1) break;
+      if (dateColIdx !== -1) break;
     }
-  }
 
-  if (finalTargetCol === -1) {
-    throw new Error("Could not find column for Date " + dateStr + " and " + sessionCode);
-  }
-
-  // Build row index map for students by name and batch
+    // Build row index map for students by name and batch
   var studentRowMap = {};
   var currentDept = "General";
   var currentBatch = "IV";
   for (var r = 0; r < numRows; r++) {
-    var deptVal = String(values[r][2] || '').trim();
-    if (deptVal && deptVal.toLowerCase() !== 'dept' && deptVal.toLowerCase() !== 'department') {
+    var deptVal = String(values[r][2] || "").trim();
+    if (deptVal && deptVal.toLowerCase() !== "dept" && deptVal.toLowerCase() !== "department") {
       currentDept = deptVal;
     }
 
-    var yearVal = String(values[r][3] || '').trim();
-    if (yearVal && yearVal.toLowerCase() !== 'year' && yearVal.toLowerCase() !== 'batch' && yearVal.toLowerCase() !== 'sem') {
+    var yearVal = String(values[r][3] || "").trim();
+    if (yearVal && yearVal.toLowerCase() !== "year" && yearVal.toLowerCase() !== "batch" && yearVal.toLowerCase() !== "sem") {
       currentBatch = yearVal;
     }
 
-    var rowName = String(values[r][1] || '').trim().toLowerCase();
-    if (rowName && rowName !== 'student name' && rowName !== 'name') {
+    var rowName = String(values[r][1] || "").trim().toLowerCase();
+    if (rowName && rowName !== "student name" && rowName !== "name") {
       var combinedBatch = currentDept + " - " + currentBatch;
       
-      // Map name + full combined batch (e.g. "GDD - I")
-      studentRowMap[rowName + '_' + combinedBatch.toLowerCase()] = r + 1;
-      // Also map name + just batch as fallback (e.g. "I")
-      studentRowMap[rowName + '_' + currentBatch.toLowerCase()] = r + 1;
+      // Map name + full combined batch
+      studentRowMap[rowName + "_" + combinedBatch.toLowerCase()] = r + 1;
+      // Also map name + just batch as fallback
+      studentRowMap[rowName + "_" + currentBatch.toLowerCase()] = r + 1;
       // Map name alone
       studentRowMap[rowName] = r + 1;
     }
@@ -322,7 +307,7 @@ function saveDepartmentAttendance(sheet, params) {
 
     if (item.name) {
       var cleanName = item.name.trim().toLowerCase();
-      var batchKey = item.batchYear ? (cleanName + '_' + String(item.batchYear).trim().toLowerCase()) : cleanName;
+      var batchKey = item.batchYear ? (cleanName + "_" + String(item.batchYear).trim().toLowerCase()) : cleanName;
       if (studentRowMap[batchKey]) {
         rowNum = studentRowMap[batchKey];
       } else if (studentRowMap[cleanName]) {
@@ -339,47 +324,110 @@ function saveDepartmentAttendance(sheet, params) {
     }
   }
 
-  var moduleTitle = params.moduleTitle || "";
-  var moduleTutor = params.moduleTutor || "";
-
-  // Dynamic Anchor: Scan UPWARDS from the first updated student to find their specific S1/S2/S3 header
+  // Determine sessionRowIdx by scanning upwards from first student in the date column
   var sessionRowIdx = -1;
-  var colIndexZeroBased = finalTargetCol - 1;
-  
-  // Start from the row just above the first student, all the way up to row 1
   var startScanIdx = (minUpdateRow !== -1) ? (minUpdateRow - 2) : Math.min(30, numRows - 1); 
   
-  for (var i = startScanIdx; i >= 0; i--) {
-    var cellValue = String(values[i][colIndexZeroBased] || '').trim().toUpperCase();
-    if (cellValue === 'S1' || cellValue === 'S2' || cellValue === 'S3') {
-      sessionRowIdx = i + 1; // 1-indexed
-      break;
-    }
-  }
-
-  // If upward scan failed, fallback to scanning downwards from top (legacy)
-  if (sessionRowIdx === -1) {
-    for (var i = 0; i < Math.min(200, numRows); i++) {
-      var cellValue = String(values[i][colIndexZeroBased] || '').trim().toUpperCase();
-      if (cellValue === 'S1' || cellValue === 'S2' || cellValue === 'S3') {
+  if (dateColIdx !== -1) {
+    for (var i = startScanIdx; i >= 0; i--) {
+      var cellValue = String(values[i][dateColIdx] || "").trim().toUpperCase();
+      if (cellValue === "S1" || cellValue === "S2" || cellValue === "S3") {
         sessionRowIdx = i + 1; // 1-indexed
         break;
       }
     }
   }
 
-  // Write Title and Tutor to the cells directly above the anchor
+  // If upward scan failed, fallback to scanning horizontally across the row to find any session
+  if (sessionRowIdx === -1) {
+    for (var i = startScanIdx; i >= 0; i--) {
+      var foundAnySession = false;
+      for (var c = 7; c < Math.min(numCols, 50); c++) {
+        var h = String(values[i][c] || "").trim().toUpperCase();
+        if (h === "S1" || h === "S2" || h === "S3") {
+          foundAnySession = true;
+          break;
+        }
+      }
+      if (foundAnySession) {
+        sessionRowIdx = i + 1;
+        break;
+      }
+    }
+  }
+
+  // Determine final target column by scanning horizontally in the sessionRowIdx
+  var finalTargetCol = -1;
+  if (sessionRowIdx !== -1) {
+    // If we have dateColIdx, start scanning from there up to dateColIdx+6
+    var startCol = (dateColIdx !== -1) ? dateColIdx : 7;
+    var endCol = (dateColIdx !== -1) ? Math.min(numCols, dateColIdx + 8) : numCols;
+    
+    for (var c = startCol; c < endCol; c++) {
+      var h = String(values[sessionRowIdx - 1][c] || "").trim().toUpperCase();
+      if (h === sessionCode) {
+        finalTargetCol = c + 1; // 1-indexed
+        break;
+      }
+    }
+  }
+
+  // Legacy Fallback if finalTargetCol is STILL not found
+  if (finalTargetCol === -1) {
+    for (var c = 7; c < numCols; c++) {
+      for (var r = 0; r < Math.min(200, numRows); r++) {
+        var h = String(values[r][c] || "").trim().toUpperCase();
+        if (h === sessionCode) {
+          finalTargetCol = c + 1;
+          if (sessionRowIdx === -1) sessionRowIdx = r + 1;
+          break;
+        }
+      }
+      if (finalTargetCol !== -1) break;
+    }
+  }
+
+  if (finalTargetCol === -1) {
+    throw new Error("Could not find column for Date " + dateStr + " and " + sessionCode);
+  }
+
+  var moduleTitle = params.moduleTitle || "";
+  var moduleTutor = params.moduleTutor || "";  // Dynamically find Title and Tutor rows by scanning Column B upwards
+  var titleRowIdx = -1;
+  var tutorRowIdx = -1;
   if (sessionRowIdx > 2) {
-    if (moduleTitle) {
-      var titleCell = sheet.getRange(sessionRowIdx - 2, finalTargetCol);
-      titleCell.setValue(moduleTitle);
-      titleCell.setHorizontalAlignment("center");
+    for (var r = sessionRowIdx; r >= Math.max(1, sessionRowIdx - 4); r--) {
+      var label = String(values[r - 1][1] || "").trim().toLowerCase(); // Column B is index 1
+      if (label.indexOf("title") !== -1) titleRowIdx = r;
+      if (label.indexOf("tutor") !== -1) tutorRowIdx = r;
     }
-    if (moduleTutor) {
-      var tutorCell = sheet.getRange(sessionRowIdx - 1, finalTargetCol);
-      tutorCell.setValue(moduleTutor);
-      tutorCell.setHorizontalAlignment("center");
-    }
+  }
+
+  // Fallback to strict relative rows if labels not found
+  if (titleRowIdx === -1 && sessionRowIdx > 2) titleRowIdx = sessionRowIdx - 2;
+  if (tutorRowIdx === -1 && sessionRowIdx > 2) tutorRowIdx = sessionRowIdx - 1;
+
+  if (moduleTitle && titleRowIdx > 0 && titleRowIdx !== sessionRowIdx) {
+    // Only write if it doesn't overlap with the session row!
+    var titleCell = sheet.getRange(titleRowIdx, finalTargetCol);
+    try {
+        titleCell.setValue(moduleTitle);
+      } catch (e) {
+        titleCell.clearDataValidations();
+        titleCell.setValue(moduleTitle);
+      }
+    titleCell.setHorizontalAlignment("center");
+  }
+  if (moduleTutor && tutorRowIdx > 0 && tutorRowIdx !== sessionRowIdx) {
+    // Prevent overwriting the Session row in broken sheets (like GDD)
+    var tutorCell = sheet.getRange(tutorRowIdx, finalTargetCol);
+    try {
+        tutorCell.setValue(moduleTutor);
+      } catch (e) {
+        tutorCell.clearDataValidations();
+        tutorCell.setValue(moduleTutor);
+      }
+    tutorCell.setHorizontalAlignment("center");
   }
 
   // Write attendance marks
@@ -388,7 +436,12 @@ function saveDepartmentAttendance(sheet, params) {
     var rData = resolvedUpdates[ru];
     if (rData.mark) {
       var cell = sheet.getRange(rData.rowNum, finalTargetCol);
-      cell.setValue(rData.mark);
+      try {
+          cell.setValue(rData.mark);
+        } catch (e) {
+          cell.clearDataValidations();
+          cell.setValue(rData.mark);
+        }
       cell.setHorizontalAlignment("center");
       applyStatusColor(cell, rData.mark);
       updatedCount++;
