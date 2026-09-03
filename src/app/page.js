@@ -75,7 +75,7 @@ export default function AttendancePage() {
       setTheme(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
 
-      const savedUrl = DEFAULT_SHEET_URL || localStorage.getItem(STORAGE_KEYS.SHEET_URL) || localStorage.getItem(STORAGE_KEYS.SCRIPT_URL) || '';
+      const savedUrl = localStorage.getItem(STORAGE_KEYS.SHEET_URL) || localStorage.getItem(STORAGE_KEYS.SCRIPT_URL) || DEFAULT_SHEET_URL || '';
       if (savedUrl) {
         setSheetUrl(savedUrl);
         setSheetUrlInput(savedUrl);
