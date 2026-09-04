@@ -1,7 +1,7 @@
 /**
  * ==========================================================================
  * AUTOATTENDANCE API CONNECTOR (Ultra-Precision Multi-Batch Indexing Engine)
- * Version: 4.2.0-smart-indexer
+ * Version: 4.3.0-bulletproof-indexer
  * ==========================================================================
  */
 
@@ -84,7 +84,7 @@ function handleAttendanceRequest(e, method) {
     if (action === 'test' || action === 'ping') {
       output = { 
         success: true, 
-        version: "4.2.0-smart-indexer",
+        version: "4.3.0-bulletproof-indexer",
         message: "Connected successfully!", 
         spreadsheetTitle: ss.getName(),
         sheets: deptSheets.length > 0 ? deptSheets : allSheets
@@ -107,6 +107,14 @@ function handleAttendanceRequest(e, method) {
         success: true, 
         message: "Attendance saved to Google Sheet!", 
         result: saveDepartmentAttendance(targetSheet, params) 
+      };
+    } else if (action === 'healHeaders') {
+      var targetSheetName = params.sheetName || (deptSheets.length > 0 ? deptSheets[0] : allSheets[0]);
+      var targetSheet = ss.getSheetByName(targetSheetName) || ss.getSheets()[0];
+      output = {
+        success: true,
+        message: "Headers healed successfully!",
+        result: healSheetHeaders(targetSheet, params)
       };
     } else {
       throw new Error("Unknown action: " + action);
@@ -158,7 +166,7 @@ function getDepartmentAttendanceData(sheet, params) {
         lower === 'names' || 
         lower === 'candidate name' ||
         lower.startsWith('module') || 
-        lower.startsWith('faculty') ||
+        lower.startsWith('faculty') || 
         lower.startsWith('department') ||
         lower.startsWith('total') ||
         lower.startsWith('tutor')) {
@@ -194,7 +202,7 @@ function getDepartmentAttendanceData(sheet, params) {
  */
 function buildSheetIndex(values) {
   var numRows = values.length;
-  var numCols = values[0].length;
+  var numCols = values[0] ? values[0].length : 0;
 
   var dateColumns = {};
   for (var r = 0; r < Math.min(35, numRows); r++) {
@@ -276,6 +284,7 @@ function buildSheetIndex(values) {
           students.push({
             row: sR + 1,
             name: sName,
+            rollNo: String(values[sR][0] || '').trim(),
             batchKey: currentDept + " - " + currentBatch
           });
         }
@@ -319,6 +328,9 @@ function safeSetCellValue(cell, value) {
   }
 }
 
+/**
+ * Saves attendance strictly to student rows, auto-healing any damaged headers and preventing corruption
+ */
 function saveDepartmentAttendance(sheet, params) {
   var dateStr = params.date || ""; // e.g. "2026-09-04"
   var sessionName = params.session || "";
@@ -336,12 +348,17 @@ function saveDepartmentAttendance(sheet, params) {
   var numRows = values.length;
   var numCols = sheet.getLastColumn();
 
-  var sessionCode = "S1";
-  var sLower = sessionName.toLowerCase();
-  if (sLower.indexOf('session 2') !== -1 || sLower.indexOf('11:15') !== -1 || sLower === 's2' || sLower === '2') {
-    sessionCode = "S2";
-  } else if (sLower.indexOf('session 3') !== -1 || sLower.indexOf('02:00') !== -1 || sLower.indexOf('2pm') !== -1 || sLower === 's3' || sLower === '3') {
-    sessionCode = "S3";
+  // Extract session code (S1, S2, S3)
+  var sessionCode = params.sessionCode || "";
+  if (!sessionCode) {
+    var sLower = sessionName.toLowerCase();
+    if (sLower.indexOf('session 2') !== -1 || sLower.indexOf('11:15') !== -1 || sLower === 's2' || sLower === '2') {
+      sessionCode = "S2";
+    } else if (sLower.indexOf('session 3') !== -1 || sLower.indexOf('02:00') !== -1 || sLower.indexOf('2pm') !== -1 || sLower === 's3' || sLower === '3') {
+      sessionCode = "S3";
+    } else {
+      sessionCode = "S1";
+    }
   }
 
   // 1. Build the complete Sheet Structure Index
@@ -379,19 +396,8 @@ function saveDepartmentAttendance(sheet, params) {
   var matchedBlock = null;
   if (updates.length > 0) {
     var first = updates[0];
-    if (first.rowIndex) {
-      for (var b = 0; b < index.blocks.length; b++) {
-        var blk = index.blocks[b];
-        for (var st = 0; st < blk.students.length; st++) {
-          if (blk.students[st].row === first.rowIndex) {
-            matchedBlock = blk;
-            break;
-          }
-        }
-        if (matchedBlock) break;
-      }
-    }
-    if (!matchedBlock && first.batchYear) {
+    // First try batchKey match
+    if (first.batchYear) {
       var searchKey = String(first.batchYear).trim().toLowerCase();
       for (var b = 0; b < index.blocks.length; b++) {
         if (index.blocks[b].batchKey.toLowerCase() === searchKey) {
@@ -400,12 +406,26 @@ function saveDepartmentAttendance(sheet, params) {
         }
       }
     }
+    // Next try student name match
     if (!matchedBlock && first.name) {
       var searchName = String(first.name).trim().toLowerCase();
       for (var b = 0; b < index.blocks.length; b++) {
         var blk = index.blocks[b];
         for (var st = 0; st < blk.students.length; st++) {
           if (blk.students[st].name.toLowerCase() === searchName) {
+            matchedBlock = blk;
+            break;
+          }
+        }
+        if (matchedBlock) break;
+      }
+    }
+    // Fallback: match by rowIndex if it exists within a block's students
+    if (!matchedBlock && first.rowIndex) {
+      for (var b = 0; b < index.blocks.length; b++) {
+        var blk = index.blocks[b];
+        for (var st = 0; st < blk.students.length; st++) {
+          if (blk.students[st].row === first.rowIndex) {
             matchedBlock = blk;
             break;
           }
@@ -424,75 +444,128 @@ function saveDepartmentAttendance(sheet, params) {
     };
   }
 
-  // 3. Find exact target column for this session within the matched block
-  var finalTargetCol = -1;
+  // 3. Determine deterministic target column for this session
+  // In our standardized grid, each day has exactly 3 consecutive columns: S1 (+0), S2 (+1), S3 (+2)
+  var sessionOffset = (sessionCode === 'S2') ? 1 : (sessionCode === 'S3') ? 2 : 0;
+  var finalTargetCol = baseCol + sessionOffset;
   var sessionRowValues = values[matchedBlock.sessionRow - 1];
 
-  // Scan from baseCol rightwards up to baseCol + 4
-  for (var c = baseCol; c <= Math.min(numCols, baseCol + 4); c++) {
-    var h = String(sessionRowValues[c - 1] || '').trim().toUpperCase();
-    if (h === sessionCode) {
-      finalTargetCol = c;
-      break;
+  // 4. Auto-heal session header cells for this day if damaged or previously overwritten
+  var sessionLabels = ["S1", "S2", "S3"];
+  for (var sIdx = 0; sIdx < 3; sIdx++) {
+    var checkCol = baseCol + sIdx;
+    if (checkCol > numCols) continue;
+    var expS = sessionLabels[sIdx];
+    var currentHeaderVal = String(sessionRowValues[checkCol - 1] || '').trim().toUpperCase();
+    if (currentHeaderVal !== expS) {
+      var sCell = sheet.getRange(matchedBlock.sessionRow, checkCol);
+      safeSetCellValue(sCell, expS);
+      try {
+        sCell.setBackground(null);
+        sCell.setFontWeight("bold");
+        sCell.setHorizontalAlignment("center");
+      } catch(e){}
     }
   }
 
-  if (finalTargetCol === -1) {
-    // Fallback: search within baseCol to baseCol + 8
-    for (var c = baseCol; c <= Math.min(numCols, baseCol + 8); c++) {
-      var h = String(sessionRowValues[c - 1] || '').trim().toUpperCase();
-      if (h === sessionCode) {
-        finalTargetCol = c;
-        break;
-      }
-    }
-  }
-
-  if (finalTargetCol === -1) {
-    finalTargetCol = baseCol; // Safe default
-  }
-
-  // 4. Write Module Title and Tutor into the matched block
+  // 5. Write Module Title and Tutor into the matched block (clearing any stray attendance marks)
   var moduleTitle = params.moduleTitle || "";
   var moduleTutor = params.moduleTutor || "";
 
-  if (moduleTitle && matchedBlock.titleRow > 0 && matchedBlock.titleRow !== matchedBlock.sessionRow) {
+  if (matchedBlock.titleRow > 0 && matchedBlock.titleRow !== matchedBlock.sessionRow) {
     var titleCell = sheet.getRange(matchedBlock.titleRow, finalTargetCol);
-    safeSetCellValue(titleCell, moduleTitle);
-    titleCell.setHorizontalAlignment("center");
+    var curTitleVal = String(titleCell.getValue() || '').trim().toUpperCase();
+    if (curTitleVal === 'P' || curTitleVal === 'A' || curTitleVal === 'L' || curTitleVal === 'OD') {
+      try { titleCell.setBackground(null); } catch(e){}
+      titleCell.setValue('');
+    }
+    if (moduleTitle) {
+      safeSetCellValue(titleCell, moduleTitle);
+      try { titleCell.setHorizontalAlignment("center"); } catch(e){}
+    }
   }
 
-  if (moduleTutor && matchedBlock.tutorRow > 0 && matchedBlock.tutorRow !== matchedBlock.sessionRow) {
+  if (matchedBlock.tutorRow > 0 && matchedBlock.tutorRow !== matchedBlock.sessionRow) {
     var tutorCell = sheet.getRange(matchedBlock.tutorRow, finalTargetCol);
-    safeSetCellValue(tutorCell, moduleTutor);
-    tutorCell.setHorizontalAlignment("center");
+    var curTutorVal = String(tutorCell.getValue() || '').trim().toUpperCase();
+    if (curTutorVal === 'P' || curTutorVal === 'A' || curTutorVal === 'L' || curTutorVal === 'OD') {
+      try { tutorCell.setBackground(null); } catch(e){}
+    }
+    if (moduleTutor) {
+      safeSetCellValue(tutorCell, moduleTutor);
+      try { 
+        tutorCell.setBackground(null);
+        tutorCell.setHorizontalAlignment("center"); 
+      } catch(e){}
+    } else if (curTutorVal === 'P' || curTutorVal === 'A' || curTutorVal === 'L' || curTutorVal === 'OD') {
+      tutorCell.setValue('');
+    }
   }
 
-  // 5. Write attendance marks for each student
+  // 6. Write attendance marks for each student with STRICT GUARD RAILS & TRUE ROW MATCHING
   var updatedCount = 0;
   for (var ru = 0; ru < updates.length; ru++) {
     var item = updates[ru];
-    if (item.mark) {
-      var targetRow = item.rowIndex;
-      // If rowIndex was not directly provided, find from block students index
-      if (!targetRow && item.name) {
-        var cleanN = String(item.name).trim().toLowerCase();
-        for (var s = 0; s < matchedBlock.students.length; s++) {
-          if (matchedBlock.students[s].name.toLowerCase() === cleanN) {
-            targetRow = matchedBlock.students[s].row;
+    if (!item || !item.mark) continue;
+
+    var targetRow = -1;
+    var cleanItemName = item.name ? String(item.name).trim().toLowerCase() : "";
+    var cleanItemRoll = item.rollNo ? String(item.rollNo).trim().toLowerCase() : "";
+
+    // Primary: Match by Name within matched block students
+    if (cleanItemName) {
+      for (var s = 0; s < matchedBlock.students.length; s++) {
+        if (matchedBlock.students[s].name.toLowerCase() === cleanItemName) {
+          targetRow = matchedBlock.students[s].row;
+          break;
+        }
+      }
+    }
+
+    // Secondary: Match by Roll Number within matched block students
+    if (targetRow === -1 && cleanItemRoll) {
+      for (var s = 0; s < matchedBlock.students.length; s++) {
+        if (String(matchedBlock.students[s].rollNo || '').trim().toLowerCase() === cleanItemRoll) {
+          targetRow = matchedBlock.students[s].row;
+          break;
+        }
+      }
+    }
+
+    // Tertiary: Match across all indexed blocks by name
+    if (targetRow === -1 && cleanItemName) {
+      for (var b = 0; b < index.blocks.length; b++) {
+        var blk = index.blocks[b];
+        for (var s = 0; s < blk.students.length; s++) {
+          if (blk.students[s].name.toLowerCase() === cleanItemName) {
+            targetRow = blk.students[s].row;
             break;
           }
         }
-      }
-
-      if (targetRow) {
-        var cell = sheet.getRange(targetRow, finalTargetCol);
-        safeSetCellValue(cell, item.mark);
-        cell.setHorizontalAlignment("center");
-        applyStatusColor(cell, item.mark);
-        updatedCount++;
+        if (targetRow !== -1) break;
       }
     }
+
+    // Quaternary fallback: verify client rowIndex against valid student boundaries
+    if (targetRow === -1 && item.rowIndex) {
+      var candRow = parseInt(item.rowIndex, 10);
+      if (candRow > matchedBlock.sessionRow) {
+        targetRow = candRow;
+      }
+    }
+
+    // STRICT GUARD RAIL: Never write student marks to header rows (Title, Tutor, Session)
+    if (targetRow <= matchedBlock.sessionRow || targetRow <= matchedBlock.tutorRow || targetRow <= matchedBlock.titleRow) {
+      Logger.log("BLOCKED attendance mark from writing to header row: " + targetRow);
+      continue;
+    }
+
+    // Write verified attendance mark
+    var cell = sheet.getRange(targetRow, finalTargetCol);
+    safeSetCellValue(cell, item.mark);
+    cell.setHorizontalAlignment("center");
+    applyStatusColor(cell, item.mark);
+    updatedCount++;
   }
 
   return {
@@ -502,6 +575,70 @@ function saveDepartmentAttendance(sheet, params) {
     updatedCount: updatedCount,
     batchKey: matchedBlock.batchKey
   };
+}
+
+/**
+ * Heals corrupted session headers (S1/S2/S3) and clears stray marks from tutor/title rows across all blocks
+ */
+function healSheetHeaders(sheet, params) {
+  var values = sheet.getDataRange().getValues();
+  var numRows = values.length;
+  var numCols = sheet.getLastColumn();
+  var index = buildSheetIndex(values);
+  var healedCount = 0;
+
+  var dateKeys = Object.keys(index.dateColumns);
+  for (var b = 0; b < index.blocks.length; b++) {
+    var blk = index.blocks[b];
+    for (var d = 0; d < dateKeys.length; d++) {
+      var baseCol = index.dateColumns[dateKeys[d]];
+      if (!baseCol) continue;
+
+      var sessionLabels = ["S1", "S2", "S3"];
+      for (var s = 0; s < 3; s++) {
+        var col = baseCol + s;
+        if (col > numCols) continue;
+        var expSession = sessionLabels[s];
+
+        // 1. Restore session header cell if damaged
+        var sVal = String(values[blk.sessionRow - 1][col - 1] || '').trim().toUpperCase();
+        if (sVal !== expSession) {
+          var sCell = sheet.getRange(blk.sessionRow, col);
+          safeSetCellValue(sCell, expSession);
+          try {
+            sCell.setBackground(null);
+            sCell.setFontWeight("bold");
+            sCell.setHorizontalAlignment("center");
+          } catch(e){}
+          healedCount++;
+        }
+
+        // 2. Clear stray attendance marks from tutor row
+        if (blk.tutorRow > 0 && blk.tutorRow !== blk.sessionRow) {
+          var tVal = String(values[blk.tutorRow - 1][col - 1] || '').trim().toUpperCase();
+          if (tVal === 'P' || tVal === 'A' || tVal === 'L' || tVal === 'OD') {
+            var tCell = sheet.getRange(blk.tutorRow, col);
+            tCell.setValue('');
+            try { tCell.setBackground(null); } catch(e){}
+            healedCount++;
+          }
+        }
+
+        // 3. Clear stray attendance marks from title row
+        if (blk.titleRow > 0 && blk.titleRow !== blk.sessionRow) {
+          var tiVal = String(values[blk.titleRow - 1][col - 1] || '').trim().toUpperCase();
+          if (tiVal === 'P' || tiVal === 'A' || tiVal === 'L' || tiVal === 'OD') {
+            var tiCell = sheet.getRange(blk.titleRow, col);
+            tiCell.setValue('');
+            try { tiCell.setBackground(null); } catch(e){}
+            healedCount++;
+          }
+        }
+      }
+    }
+  }
+
+  return { healedCount: healedCount, blocksCount: index.blocks.length };
 }
 
 function applyStatusColor(cell, mark) {

@@ -97,6 +97,7 @@ export async function saveAttendanceToSheet(inputUrl, payload) {
     sheetName: payload.sheetName || 'GT',
     date: payload.date || '',
     session: payload.session || '',
+    sessionCode: payload.sessionCode || '',
     moduleTitle: payload.moduleTitle || '',
     moduleTutor: payload.moduleTutor || '',
     updates: JSON.stringify(payload.updates || [])
