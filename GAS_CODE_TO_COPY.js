@@ -1,6 +1,7 @@
 /**
  * ==========================================================================
- * AUTOATTENDANCE API CONNECTOR (Ultra-Precision Multi-Batch Grid Engine)
+ * AUTOATTENDANCE API CONNECTOR (Ultra-Precision Multi-Batch Indexing Engine)
+ * Version: 4.2.0-smart-indexer
  * ==========================================================================
  */
 
@@ -24,7 +25,7 @@ function doGet(e) {
       '  </div>' +
       '  <script>' +
       '    function tryClose() { try { window.top.close(); } catch(e){} try { window.close(); } catch(e){} }' +
-      '    setTimeout(tryClose, 2000);' +
+      '    setTimeout(tryClose, 2500);' +
       '  </script>' +
       '</body></html>'
     );
@@ -67,7 +68,6 @@ function handleAttendanceRequest(e, method) {
     }
 
     var action = params.action || (method === 'POST' ? 'saveAttendance' : 'getSheetData');
-
     var allSheets = ss.getSheets().map(function(s) { return s.getName(); });
     var deptSheets = allSheets.filter(function(name) {
       var lower = name.toLowerCase();
@@ -84,6 +84,7 @@ function handleAttendanceRequest(e, method) {
     if (action === 'test' || action === 'ping') {
       output = { 
         success: true, 
+        version: "4.2.0-smart-indexer",
         message: "Connected successfully!", 
         spreadsheetTitle: ss.getName(),
         sheets: deptSheets.length > 0 ? deptSheets : allSheets
@@ -186,9 +187,141 @@ function getDepartmentAttendanceData(sheet, params) {
   };
 }
 
+/**
+ * Builds a complete structural index of the spreadsheet tab:
+ * - dateColumns: exact column where each date begins
+ * - blocks: all batch tables, their title rows, tutor rows, session rows, and student rows
+ */
+function buildSheetIndex(values) {
+  var numRows = values.length;
+  var numCols = values[0].length;
+
+  var dateColumns = {};
+  for (var r = 0; r < Math.min(35, numRows); r++) {
+    for (var c = 7; c < numCols; c++) {
+      var cell = values[r][c];
+      if (!cell) continue;
+
+      var isoDate = '';
+      if (cell instanceof Date) {
+        var y = cell.getFullYear();
+        var m = cell.getMonth() + 1;
+        var d = cell.getDate();
+        isoDate = y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+      } else {
+        var str = String(cell).trim();
+        var dateParts = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (dateParts) {
+          var p1 = parseInt(dateParts[1], 10);
+          var p2 = parseInt(dateParts[2], 10);
+          var yr = parseInt(dateParts[3], 10);
+          var mo = p1, dy = p2;
+          if (p1 > 12) { dy = p1; mo = p2; }
+          isoDate = yr + '-' + (mo < 10 ? '0' + mo : mo) + '-' + (dy < 10 ? '0' + dy : dy);
+        } else if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          isoDate = str;
+        }
+      }
+
+      if (isoDate && !dateColumns[isoDate]) {
+        dateColumns[isoDate] = c + 1; // 1-indexed
+      }
+    }
+  }
+
+  var blocks = [];
+  var currentDept = "General";
+  var currentBatch = "IV";
+
+  for (var r = 0; r < numRows; r++) {
+    var colC = String(values[r][2] || '').trim();
+    var colD = String(values[r][3] || '').trim();
+
+    if (colC && colC.toLowerCase() !== 'dept' && colC.toLowerCase() !== 'department') currentDept = colC;
+    if (colD && colD.toLowerCase() !== 'year' && colD.toLowerCase() !== 'batch' && colD.toLowerCase() !== 'sem') currentBatch = colD;
+
+    var isSessionRow = false;
+    for (var c = 7; c < Math.min(numCols, 60); c++) {
+      var h = String(values[r][c] || '').trim().toUpperCase();
+      if (h === 'S1' || h === 'S2' || h === 'S3') {
+        isSessionRow = true;
+        break;
+      }
+    }
+
+    if (isSessionRow) {
+      var sessionRow = r + 1;
+      var titleRow = -1;
+      var tutorRow = -1;
+      for (var checkR = r - 1; checkR >= Math.max(0, r - 4); checkR--) {
+        var label = String(values[checkR][1] || '').trim().toLowerCase();
+        if (label.indexOf('title') !== -1) titleRow = checkR + 1;
+        if (label.indexOf('tutor') !== -1) tutorRow = checkR + 1;
+      }
+      if (titleRow === -1 && sessionRow > 2) titleRow = sessionRow - 2;
+      if (tutorRow === -1 && sessionRow > 2) tutorRow = sessionRow - 1;
+
+      var students = [];
+      for (var sR = r + 1; sR < numRows; sR++) {
+        var sName = String(values[sR][1] || '').trim();
+        var sDept = String(values[sR][2] || '').trim();
+        var sYear = String(values[sR][3] || '').trim();
+        var sLower = sName.toLowerCase();
+
+        if (sDept && sDept.toLowerCase() !== 'dept' && sDept.toLowerCase() !== 'department') currentDept = sDept;
+        if (sYear && sYear.toLowerCase() !== 'year' && sYear.toLowerCase() !== 'batch') currentBatch = sYear;
+
+        if (!sName || sLower === 'student name' || sLower.indexOf('module') !== -1 || sLower.indexOf('tutor') !== -1) break;
+        if (sName.length >= 2) {
+          students.push({
+            row: sR + 1,
+            name: sName,
+            batchKey: currentDept + " - " + currentBatch
+          });
+        }
+      }
+
+      if (students.length > 0) {
+        blocks.push({
+          batchKey: students[0].batchKey,
+          titleRow: titleRow,
+          tutorRow: tutorRow,
+          sessionRow: sessionRow,
+          students: students
+        });
+      }
+    }
+  }
+
+  return { dateColumns: dateColumns, blocks: blocks };
+}
+
+/**
+ * Safely writes a cell value, ensuring strict data validations never throw fatal exceptions
+ */
+function safeSetCellValue(cell, value) {
+  if (!cell || value === undefined || value === null || value === '') return;
+  try {
+    cell.clearDataValidations();
+    cell.setDataValidation(null);
+  } catch (e) {}
+
+  try {
+    cell.setValue(value);
+  } catch (e) {
+    try {
+      SpreadsheetApp.flush();
+      cell.clear({ validationsOnly: true });
+      cell.setValue(value);
+    } catch (e2) {
+      Logger.log("Failed to set cell value: " + e2.toString());
+    }
+  }
+}
+
 function saveDepartmentAttendance(sheet, params) {
-  var dateStr = params.date || ""; // e.g. "2026-08-11"
-  var sessionName = params.session || ""; // e.g. "Session 1 (09:15 AM - 11:00 AM)"
+  var dateStr = params.date || ""; // e.g. "2026-09-04"
+  var sessionName = params.session || "";
   var updates = [];
 
   if (params.updates) {
@@ -203,235 +336,162 @@ function saveDepartmentAttendance(sheet, params) {
   var numRows = values.length;
   var numCols = sheet.getLastColumn();
 
-  var sessionOffset = 0;
   var sessionCode = "S1";
   var sLower = sessionName.toLowerCase();
-  if (sLower.includes('session 2') || sLower.includes('11:15') || sLower === 's2' || sLower === '2') {
-    sessionOffset = 1;
+  if (sLower.indexOf('session 2') !== -1 || sLower.indexOf('11:15') !== -1 || sLower === 's2' || sLower === '2') {
     sessionCode = "S2";
-  } else if (sLower.includes('session 3') || sLower.includes('02:00') || sLower.includes('2pm') || sLower === 's3' || sLower === '3') {
-    sessionOffset = 2;
+  } else if (sLower.indexOf('session 3') !== -1 || sLower.indexOf('02:00') !== -1 || sLower.indexOf('2pm') !== -1 || sLower === 's3' || sLower === '3') {
     sessionCode = "S3";
   }
 
-  // Parse target date components
-  var targetDay = 11, targetMonth = 8, targetYear = 2026;
-  var targetDayName = "";
-  if (dateStr) {
+  // 1. Build the complete Sheet Structure Index
+  var index = buildSheetIndex(values);
+  var baseCol = index.dateColumns[dateStr];
+
+  // If exact date string was not in index, fallback to scanning horizontally for date components
+  if (!baseCol && dateStr) {
     var parts = dateStr.split('-');
     if (parts.length === 3) {
-      targetYear = parseInt(parts[0], 10);
-      targetMonth = parseInt(parts[1], 10);
-      targetDay = parseInt(parts[2], 10);
-      var d = new Date(targetYear, targetMonth - 1, targetDay);
-      var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      targetDayName = days[d.getDay()];
-    }
-  }
-
-  // 1. Find dateColIdx by scanning globally from the top.
-  // Because columns are vertically aligned, finding the date ANYWHERE in the first 50 rows guarantees the correct column base.
-  var dateColIdx = -1;
-  for (var r = 0; r < Math.min(50, numRows); r++) {
-    for (var c = 7; c < numCols; c++) {
-      var cellVal = values[r][c];
-      if (!cellVal) continue;
-
-      var isMatch = false;
-      if (cellVal instanceof Date) {
-        if (cellVal.getDate() === targetDay && (cellVal.getMonth() + 1) === targetMonth) {
-          isMatch = true;
+      var tY = parseInt(parts[0], 10);
+      var tM = parseInt(parts[1], 10);
+      var tD = parseInt(parts[2], 10);
+      for (var r = 0; r < Math.min(30, numRows); r++) {
+        for (var c = 7; c < numCols; c++) {
+          var cellVal = values[r][c];
+          if (!cellVal) continue;
+          if (cellVal instanceof Date) {
+            if (cellVal.getDate() === tD && (cellVal.getMonth() + 1) === tM) {
+              baseCol = c + 1;
+              break;
+            }
+          }
         }
-      } else {
-        var str = String(cellVal).trim();
-        var m_d_y = targetMonth + '/' + targetDay + '/' + targetYear;
-        var d_m_y = targetDay + '/' + targetMonth + '/' + targetYear;
-        var m_d = targetMonth + '/' + targetDay;
-        var d_m = targetDay + '/' + targetMonth;
+        if (baseCol) break;
+      }
+    }
+  }
 
-        if (str === m_d_y || str === d_m_y || str === m_d || str === d_m || str === dateStr ||
-            str.indexOf(m_d_y) !== -1 || str.indexOf(d_m_y) !== -1 || str.indexOf(dateStr) !== -1) {
-          isMatch = true;
-        } else if (targetDayName && str.toLowerCase() === targetDayName.toLowerCase()) {
-          // Only fallback to day name if it's explicitly matched
-          isMatch = true;
+  if (!baseCol) {
+    throw new Error("Could not find column for Date " + dateStr + " in sheet " + sheet.getName());
+  }
+
+  // 2. Identify target batch block
+  var matchedBlock = null;
+  if (updates.length > 0) {
+    var first = updates[0];
+    if (first.rowIndex) {
+      for (var b = 0; b < index.blocks.length; b++) {
+        var blk = index.blocks[b];
+        for (var st = 0; st < blk.students.length; st++) {
+          if (blk.students[st].row === first.rowIndex) {
+            matchedBlock = blk;
+            break;
+          }
+        }
+        if (matchedBlock) break;
+      }
+    }
+    if (!matchedBlock && first.batchYear) {
+      var searchKey = String(first.batchYear).trim().toLowerCase();
+      for (var b = 0; b < index.blocks.length; b++) {
+        if (index.blocks[b].batchKey.toLowerCase() === searchKey) {
+          matchedBlock = index.blocks[b];
+          break;
         }
       }
-
-      if (isMatch) {
-        dateColIdx = c;
-        break;
-      }
     }
-    // If we matched the exact date, we can stop globally. If we only matched "Friday", 
-    // we might want to keep scanning to see if the EXACT date exists elsewhere.
-    // To be safe, let's just break on first match (which is how it originally worked, 
-    // but now we rely on vertical alignment).
-    if (dateColIdx !== -1) break;
-  }
-
-  // 2. Build row index map for students by name and batch
-  var studentRowMap = {};
-  var currentDept = "General";
-  var currentBatch = "IV";
-  for (var r = 0; r < numRows; r++) {
-    var deptVal = String(values[r][2] || "").trim();
-    if (deptVal && deptVal.toLowerCase() !== "dept" && deptVal.toLowerCase() !== "department") {
-      currentDept = deptVal;
-    }
-
-    var yearVal = String(values[r][3] || "").trim();
-    if (yearVal && yearVal.toLowerCase() !== "year" && yearVal.toLowerCase() !== "batch" && yearVal.toLowerCase() !== "sem") {
-      currentBatch = yearVal;
-    }
-
-    var rowName = String(values[r][1] || "").trim().toLowerCase();
-    if (rowName && rowName !== "student name" && rowName !== "name") {
-      var combinedBatch = currentDept + " - " + currentBatch;
-      studentRowMap[rowName + "_" + combinedBatch.toLowerCase()] = r + 1;
-      studentRowMap[rowName + "_" + currentBatch.toLowerCase()] = r + 1;
-      studentRowMap[rowName] = r + 1;
-    }
-  }
-
-  // 3. Resolve target rows for all updates
-  var minUpdateRow = -1;
-  var resolvedUpdates = [];
-  
-  for (var u = 0; u < updates.length; u++) {
-    var item = updates[u];
-    var rowNum = item.rowIndex;
-
-    if (item.name) {
-      var cleanName = item.name.trim().toLowerCase();
-      var batchKey = item.batchYear ? (cleanName + "_" + String(item.batchYear).trim().toLowerCase()) : cleanName;
-      if (studentRowMap[batchKey]) {
-        rowNum = studentRowMap[batchKey];
-      } else if (studentRowMap[cleanName]) {
-        rowNum = studentRowMap[cleanName];
-      }
-    }
-
-    if (rowNum) {
-      rowNum = parseInt(rowNum, 10);
-      resolvedUpdates.push({ rowNum: rowNum, mark: item.mark });
-      if (minUpdateRow === -1 || rowNum < minUpdateRow) {
-        minUpdateRow = rowNum;
+    if (!matchedBlock && first.name) {
+      var searchName = String(first.name).trim().toLowerCase();
+      for (var b = 0; b < index.blocks.length; b++) {
+        var blk = index.blocks[b];
+        for (var st = 0; st < blk.students.length; st++) {
+          if (blk.students[st].name.toLowerCase() === searchName) {
+            matchedBlock = blk;
+            break;
+          }
+        }
+        if (matchedBlock) break;
       }
     }
   }
 
-  // 4. Determine sessionRowIdx by scanning upwards from first student (minUpdateRow)
-  var sessionRowIdx = -1;
-  var startScanIdx = (minUpdateRow !== -1) ? (minUpdateRow - 2) : Math.min(30, numRows - 1); 
-  
-  // Scan horizontally across rows UPWARDS from the first student to find the nearest S1/S2/S3 header row
-  for (var i = startScanIdx; i >= Math.max(0, startScanIdx - 15); i--) {
-    var foundAnySession = false;
-    for (var c = 7; c < Math.min(numCols, 200); c++) {
-      var h = String(values[i][c] || "").trim().toUpperCase();
-      if (h === "S1" || h === "S2" || h === "S3") {
-        foundAnySession = true;
-        break;
-      }
-    }
-    if (foundAnySession) {
-      sessionRowIdx = i + 1; // 1-indexed
+  if (!matchedBlock) {
+    matchedBlock = index.blocks.length > 0 ? index.blocks[0] : {
+      titleRow: 3,
+      tutorRow: 4,
+      sessionRow: 5,
+      students: []
+    };
+  }
+
+  // 3. Find exact target column for this session within the matched block
+  var finalTargetCol = -1;
+  var sessionRowValues = values[matchedBlock.sessionRow - 1];
+
+  // Scan from baseCol rightwards up to baseCol + 4
+  for (var c = baseCol; c <= Math.min(numCols, baseCol + 4); c++) {
+    var h = String(sessionRowValues[c - 1] || '').trim().toUpperCase();
+    if (h === sessionCode) {
+      finalTargetCol = c;
       break;
     }
   }
 
-  if (sessionRowIdx === -1) {
-    sessionRowIdx = (minUpdateRow !== -1) ? (minUpdateRow - 1) : 5; // fallback
-  }
-
-  // 5. Determine final target column by scanning horizontally in the sessionRowIdx starting near dateColIdx
-  var finalTargetCol = -1;
-  if (sessionRowIdx !== -1) {
-    var startCol = (dateColIdx !== -1) ? dateColIdx : 7;
-    var endCol = (dateColIdx !== -1) ? Math.min(numCols, dateColIdx + 8) : numCols;
-    
-    for (var c = startCol; c < endCol; c++) {
-      var h = String(values[sessionRowIdx - 1][c] || "").trim().toUpperCase();
+  if (finalTargetCol === -1) {
+    // Fallback: search within baseCol to baseCol + 8
+    for (var c = baseCol; c <= Math.min(numCols, baseCol + 8); c++) {
+      var h = String(sessionRowValues[c - 1] || '').trim().toUpperCase();
       if (h === sessionCode) {
-        finalTargetCol = c + 1; // 1-indexed
+        finalTargetCol = c;
         break;
       }
     }
   }
 
-  // Legacy Fallback if finalTargetCol is STILL not found
   if (finalTargetCol === -1) {
-    for (var c = 7; c < numCols; c++) {
-      for (var r = Math.max(0, sessionRowIdx - 2); r <= sessionRowIdx; r++) {
-        var h = String(values[r][c] || "").trim().toUpperCase();
-        if (h === sessionCode) {
-          finalTargetCol = c + 1;
-          break;
-        }
-      }
-      if (finalTargetCol !== -1) break;
-    }
+    finalTargetCol = baseCol; // Safe default
   }
 
-  if (finalTargetCol === -1) {
-    throw new Error("Could not find column for Date " + dateStr + " and " + sessionCode);
-  }
-
+  // 4. Write Module Title and Tutor into the matched block
   var moduleTitle = params.moduleTitle || "";
-  var moduleTutor = params.moduleTutor || "";  
-  
-  // 6. Dynamically find Title and Tutor rows by scanning Column B upwards
-  var titleRowIdx = -1;
-  var tutorRowIdx = -1;
-  if (sessionRowIdx > 2) {
-    for (var r = sessionRowIdx; r >= Math.max(1, sessionRowIdx - 4); r--) {
-      var label = String(values[r - 1][1] || "").trim().toLowerCase(); 
-      if (label.indexOf("title") !== -1) titleRowIdx = r;
-      if (label.indexOf("tutor") !== -1) tutorRowIdx = r;
-    }
-  }
+  var moduleTutor = params.moduleTutor || "";
 
-  if (titleRowIdx === -1 && sessionRowIdx > 2) titleRowIdx = sessionRowIdx - 2;
-  if (tutorRowIdx === -1 && sessionRowIdx > 2) tutorRowIdx = sessionRowIdx - 1;
-
-  if (moduleTitle && titleRowIdx > 0 && titleRowIdx !== sessionRowIdx) {
-    var titleCell = sheet.getRange(titleRowIdx, finalTargetCol);
-    try {
-      titleCell.setValue(moduleTitle);
-    } catch (e) {
-      titleCell.clearDataValidations();
-      titleCell.setValue(moduleTitle);
-    }
+  if (moduleTitle && matchedBlock.titleRow > 0 && matchedBlock.titleRow !== matchedBlock.sessionRow) {
+    var titleCell = sheet.getRange(matchedBlock.titleRow, finalTargetCol);
+    safeSetCellValue(titleCell, moduleTitle);
     titleCell.setHorizontalAlignment("center");
   }
 
-  if (moduleTutor && tutorRowIdx > 0 && tutorRowIdx !== sessionRowIdx) {
-    var tutorCell = sheet.getRange(tutorRowIdx, finalTargetCol);
-    try {
-      tutorCell.setValue(moduleTutor);
-    } catch (e) {
-      tutorCell.clearDataValidations();
-      tutorCell.setValue(moduleTutor);
-    }
+  if (moduleTutor && matchedBlock.tutorRow > 0 && matchedBlock.tutorRow !== matchedBlock.sessionRow) {
+    var tutorCell = sheet.getRange(matchedBlock.tutorRow, finalTargetCol);
+    safeSetCellValue(tutorCell, moduleTutor);
     tutorCell.setHorizontalAlignment("center");
   }
 
-  // 7. Write attendance marks
+  // 5. Write attendance marks for each student
   var updatedCount = 0;
-  for (var ru = 0; ru < resolvedUpdates.length; ru++) {
-    var rData = resolvedUpdates[ru];
-    if (rData.mark) {
-      var cell = sheet.getRange(rData.rowNum, finalTargetCol);
-      try {
-        cell.setValue(rData.mark);
-      } catch (e) {
-        cell.clearDataValidations();
-        cell.setValue(rData.mark);
+  for (var ru = 0; ru < updates.length; ru++) {
+    var item = updates[ru];
+    if (item.mark) {
+      var targetRow = item.rowIndex;
+      // If rowIndex was not directly provided, find from block students index
+      if (!targetRow && item.name) {
+        var cleanN = String(item.name).trim().toLowerCase();
+        for (var s = 0; s < matchedBlock.students.length; s++) {
+          if (matchedBlock.students[s].name.toLowerCase() === cleanN) {
+            targetRow = matchedBlock.students[s].row;
+            break;
+          }
+        }
       }
-      cell.setHorizontalAlignment("center");
-      applyStatusColor(cell, rData.mark);
-      updatedCount++;
+
+      if (targetRow) {
+        var cell = sheet.getRange(targetRow, finalTargetCol);
+        safeSetCellValue(cell, item.mark);
+        cell.setHorizontalAlignment("center");
+        applyStatusColor(cell, item.mark);
+        updatedCount++;
+      }
     }
   }
 
@@ -439,15 +499,19 @@ function saveDepartmentAttendance(sheet, params) {
     targetColumn: finalTargetCol,
     columnLetter: indexToColLetter(finalTargetCol - 1),
     session: sessionCode,
-    updatedCount: updatedCount
+    updatedCount: updatedCount,
+    batchKey: matchedBlock.batchKey
   };
 }
+
 function applyStatusColor(cell, mark) {
   var m = String(mark).toUpperCase();
-  if (m === 'P') { cell.setBackground("#dcfce7").setFontColor("#166534"); }
-  else if (m === 'A') { cell.setBackground("#fee2e2").setFontColor("#991b1b"); }
-  else if (m === 'L') { cell.setBackground("#fef3c7").setFontColor("#92400e"); }
-  else if (m === 'OD') { cell.setBackground("#ede9fe").setFontColor("#6d28d9"); }
+  try {
+    if (m === 'P') { cell.setBackground("#dcfce7").setFontColor("#166534"); }
+    else if (m === 'A') { cell.setBackground("#fee2e2").setFontColor("#991b1b"); }
+    else if (m === 'L') { cell.setBackground("#fef3c7").setFontColor("#92400e"); }
+    else if (m === 'OD') { cell.setBackground("#ede9fe").setFontColor("#6d28d9"); }
+  } catch (e) {}
 }
 
 function indexToColLetter(i) {
