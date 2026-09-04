@@ -1,192 +1,6 @@
-/**
- * ==========================================================================
- * AUTOATTENDANCE API CONNECTOR (Ultra-Precision Multi-Batch Grid Engine)
- * ==========================================================================
- */
+const fs = require('fs');
 
-function doGet(e) { 
-  var output = handleAttendanceRequest(e, 'GET');
-
-  if (e && e.parameter && (e.parameter.action === 'saveAttendance' || e.parameter.action === 'save')) {
-    var resultText = output.success 
-      ? ("Successfully marked attendance for " + (output.result ? output.result.updatedCount : "1") + " students in " + (e.parameter.sheetName || "Sheet") + " (" + (output.result ? output.result.columnLetter : "") + ")!")
-      : ("Error: " + output.error);
-
-    return HtmlService.createHtmlOutput(
-      '<!DOCTYPE html>' +
-      '<html><head><title>Attendance Synced</title><meta charset="utf-8"></head>' +
-      '<body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;text-align:center;padding:40px 20px;background:#0f172a;color:#f8fafc;">' +
-      '  <div style="max-width:440px;margin:0 auto;background:#1e293b;padding:25px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);">' +
-      '    <div style="font-size:44px;margin-bottom:10px;">' + (output.success ? '✅' : '❌') + '</div>' +
-      '    <h2 style="margin:0 0 8px 0;color:' + (output.success ? '#10b981' : '#ef4444') + ';">' + (output.success ? 'Attendance Synced!' : 'Sync Failed') + '</h2>' +
-      '    <p style="color:#94a3b8;font-size:13px;line-height:1.5;margin-bottom:18px;">' + resultText + '</p>' +
-      '    <button onclick="tryClose()" style="background:#6366f1;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">Close Window</button>' +
-      '  </div>' +
-      '  <script>' +
-      '    function tryClose() { try { window.top.close(); } catch(e){} try { window.close(); } catch(e){} }' +
-      '    setTimeout(tryClose, 2000);' +
-      '  </script>' +
-      '</body></html>'
-    );
-  }
-
-  return ContentService.createTextOutput(JSON.stringify(output))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) { 
-  var output = handleAttendanceRequest(e, 'POST'); 
-  return ContentService.createTextOutput(JSON.stringify(output))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function handleAttendanceRequest(e, method) {
-  var output = {};
-
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (!ss) throw new Error("No active spreadsheet found.");
-
-    var params = {};
-    if (e && e.postData && e.postData.contents) {
-      try {
-        params = JSON.parse(e.postData.contents);
-      } catch (pe) {
-        params = e.parameter || {};
-      }
-    } else if (e && e.parameter) {
-      if (e.parameter.postData) {
-        try {
-          params = JSON.parse(e.parameter.postData);
-        } catch (pe2) {
-          params = e.parameter;
-        }
-      } else {
-        params = e.parameter;
-      }
-    }
-
-    var action = params.action || (method === 'POST' ? 'saveAttendance' : 'getSheetData');
-
-    var allSheets = ss.getSheets().map(function(s) { return s.getName(); });
-    var deptSheets = allSheets.filter(function(name) {
-      var lower = name.toLowerCase();
-      return !lower.includes("helper") && 
-             !lower.includes("summary") && 
-             !lower.includes("dashboard") && 
-             !lower.includes("report") && 
-             !lower.includes("list") && 
-             !lower.includes("absent") && 
-             !lower.includes("consolidated") && 
-             !lower.includes("contact");
-    });
-
-    if (action === 'test' || action === 'ping') {
-      output = { 
-        success: true, 
-        message: "Connected successfully!", 
-        spreadsheetTitle: ss.getName(),
-        sheets: deptSheets.length > 0 ? deptSheets : allSheets
-      };
-    } else if (action === 'getSheets') {
-      output = { success: true, sheets: deptSheets.length > 0 ? deptSheets : allSheets };
-    } else if (action === 'getSheetData') {
-      var sheetName = params.sheetName || (deptSheets.length > 0 ? deptSheets[0] : allSheets[0]);
-      var sheet = ss.getSheetByName(sheetName) || ss.getSheets()[0];
-      output = { 
-        success: true, 
-        sheetName: sheet.getName(), 
-        sheets: deptSheets.length > 0 ? deptSheets : allSheets, 
-        data: getDepartmentAttendanceData(sheet, params) 
-      };
-    } else if (action === 'saveAttendance' || action === 'save') {
-      var targetSheetName = params.sheetName || (deptSheets.length > 0 ? deptSheets[0] : allSheets[0]);
-      var targetSheet = ss.getSheetByName(targetSheetName) || ss.getSheets()[0];
-      output = { 
-        success: true, 
-        message: "Attendance saved to Google Sheet!", 
-        result: saveDepartmentAttendance(targetSheet, params) 
-      };
-    } else {
-      throw new Error("Unknown action: " + action);
-    }
-  } catch (err) {
-    output = { success: false, error: err.toString() };
-  }
-
-  return output;
-}
-
-function getDepartmentAttendanceData(sheet, params) {
-  var values = sheet.getDataRange().getValues();
-  if (!values || values.length === 0) return { students: [], sessions: [], batches: [] };
-
-  var students = [];
-  var batchYears = {};
-  var currentDept = "General";
-  var currentBatch = "IV";
-  var combinedBatch = "General - IV";
-
-  for (var r = 0; r < values.length; r++) {
-    var idVal = String(values[r][0] !== undefined && values[r][0] !== null ? values[r][0] : '').trim();
-    var nameVal = String(values[r][1] !== undefined && values[r][1] !== null ? values[r][1] : '').trim();
-    var deptVal = String(values[r][2] !== undefined && values[r][2] !== null ? values[r][2] : '').trim();
-    var yearVal = String(values[r][3] !== undefined && values[r][3] !== null ? values[r][3] : '').trim();
-
-    var deptUpdated = false;
-    if (deptVal && deptVal.toLowerCase() !== 'dept' && deptVal.toLowerCase() !== 'department') {
-      currentDept = deptVal;
-      deptUpdated = true;
-    }
-
-    var yearUpdated = false;
-    if (yearVal && yearVal.toLowerCase() !== 'year' && yearVal.toLowerCase() !== 'batch' && yearVal.toLowerCase() !== 'sem') {
-      currentBatch = yearVal;
-      yearUpdated = true;
-    }
-    
-    if (deptUpdated || yearUpdated) {
-      combinedBatch = currentDept + " - " + currentBatch;
-      batchYears[combinedBatch] = true;
-    }
-
-    var lower = nameVal.toLowerCase();
-    if (!nameVal || 
-        lower === 'student name' || 
-        lower === 'name' || 
-        lower === 'names' || 
-        lower === 'candidate name' ||
-        lower.startsWith('module') || 
-        lower.startsWith('faculty') ||
-        lower.startsWith('department') ||
-        lower.startsWith('total') ||
-        lower.startsWith('tutor')) {
-      continue;
-    }
-
-    if (nameVal.length < 2) continue;
-
-    students.push({
-      rowIndex: r + 1,
-      id: "std_" + sheet.getName() + "_r" + (r + 1),
-      rollNo: idVal || String(students.length + 1),
-      name: nameVal,
-      batchYear: combinedBatch,
-      history: {}
-    });
-  }
-
-  return {
-    headerRow: 5,
-    idCol: 'A',
-    nameCol: 'B',
-    students: students,
-    sessions: [],
-    batches: Object.keys(batchYears)
-  };
-}
-
-function saveDepartmentAttendance(sheet, params) {
+const replacement = `function saveDepartmentAttendance(sheet, params) {
   var dateStr = params.date || ""; // e.g. "2026-08-11"
   var sessionName = params.session || ""; // e.g. "Session 1 (09:15 AM - 11:00 AM)"
   var updates = [];
@@ -442,16 +256,21 @@ function saveDepartmentAttendance(sheet, params) {
     updatedCount: updatedCount
   };
 }
-function applyStatusColor(cell, mark) {
-  var m = String(mark).toUpperCase();
-  if (m === 'P') { cell.setBackground("#dcfce7").setFontColor("#166534"); }
-  else if (m === 'A') { cell.setBackground("#fee2e2").setFontColor("#991b1b"); }
-  else if (m === 'L') { cell.setBackground("#fef3c7").setFontColor("#92400e"); }
-  else if (m === 'OD') { cell.setBackground("#ede9fe").setFontColor("#6d28d9"); }
-}
+`;
 
-function indexToColLetter(i) {
-  var t = i + 1, l = '';
-  while (t > 0) { var m = (t - 1) % 26; l = String.fromCharCode(65 + m) + l; t = Math.floor((t - m) / 26); }
-  return l;
+let content = fs.readFileSync('AutoAttendanceAPI.gs', 'utf8');
+
+let matchStart = content.indexOf('function saveDepartmentAttendance(');
+let matchEnd = content.indexOf('function applyStatusColor(');
+
+if (matchStart !== -1 && matchEnd !== -1) {
+    let before = content.substring(0, matchStart);
+    let after = content.substring(matchEnd);
+    fs.writeFileSync('AutoAttendanceAPI.gs', before + replacement + after, 'utf8');
+    fs.writeFileSync('GAS_CODE_TO_COPY_V3.js', before + replacement + after, 'utf8');
+    fs.writeFileSync('GAS_CODE_TO_COPY.js', before + replacement + after, 'utf8');
+    fs.writeFileSync('google_apps_script.js', before + replacement + after, 'utf8');
+    console.log("Successfully completely rewrote saveDepartmentAttendance");
+} else {
+    console.log("Failed to find bounds.");
 }
