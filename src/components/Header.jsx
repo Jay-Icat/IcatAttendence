@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Sun, Moon, Layers, Calendar, LogOut, User } from 'lucide-react';
+import Link from 'next/link';
+import { Sparkles, Sun, Moon, Layers, Calendar, LogOut, User, History } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Header({
@@ -54,6 +55,16 @@ export default function Header({
               </span>
             </div>
           )}
+
+          {/* History Link Button */}
+          <Link
+            href="/history"
+            className="btn-history-link"
+            title="View Attendance History"
+          >
+            <History size={16} />
+            <span className="history-btn-text">History</span>
+          </Link>
 
           {/* Theme Toggle Button */}
           <button

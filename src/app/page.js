@@ -22,6 +22,7 @@ import StudentRow from '../components/StudentRow';
 import WeekendHoliday from '../components/WeekendHoliday';
 import LoginScreen from '../components/LoginScreen';
 import { useAuth } from '../context/AuthContext';
+import { saveAttendanceHistory } from '../lib/firestoreHistory';
 import { 
   DEFAULT_SESSIONS, 
   DEFAULT_SHEET_URL, 
@@ -297,6 +298,42 @@ export default function AttendancePage() {
     };
 
     try {
+      // 1. Calculate summary metrics
+      const presentCount = updates.filter((u) => u.mark === 'P').length;
+      const absentCount = updates.filter((u) => u.mark === 'A').length;
+      const odCount = updates.filter((u) => u.mark === 'OD').length;
+
+      // 2. Save to Firestore first
+      const historyPayload = {
+        date: effectiveDate,
+        teacherName: user?.displayName || user?.email?.split('@')[0] || 'Teacher',
+        teacherEmail: user?.email || '',
+        teacherPhoto: user?.photoURL || '',
+        department: activeSheet,
+        batch: selectedBatch,
+        module: selectedModule || 'General',
+        moduleTutor: selectedTutor || 'Unassigned',
+        session: sessionObj.name || selectedSession,
+        presentCount,
+        absentCount,
+        odCount,
+        totalMarked: updates.length,
+        studentRecords: updates.map((u) => ({
+          roll: u.rollNo,
+          name: u.name,
+          mark: u.mark,
+          batch: u.batchYear || selectedBatch
+        }))
+      };
+
+      try {
+        await saveAttendanceHistory(historyPayload);
+        Logger.info(`Attendance history saved to Firestore first for ${activeSheet}`);
+      } catch (firestoreErr) {
+        Logger.error('Firestore save warning:', firestoreErr?.message || firestoreErr);
+      }
+
+      // 3. Sync to Google Sheet via Apps Script
       const targetUrl = scriptUrl || DEFAULT_APPS_SCRIPT_URL;
       await saveAttendanceToSheet(targetUrl, payload);
 

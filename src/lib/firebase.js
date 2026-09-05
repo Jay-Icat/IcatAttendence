@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
@@ -21,12 +22,14 @@ export const isFirebaseConfigured = Boolean(
 
 let app = null;
 let auth = null;
+let db = null;
 let googleProvider = null;
 
 if (typeof window !== 'undefined' && isFirebaseConfigured) {
   try {
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
+    db = getFirestore(app);
     googleProvider = new GoogleAuthProvider();
     googleProvider.setCustomParameters({
       hd: allowedDomain,
@@ -37,4 +40,5 @@ if (typeof window !== 'undefined' && isFirebaseConfigured) {
   }
 }
 
-export { app, auth, googleProvider };
+export { app, auth, db, googleProvider };
+
