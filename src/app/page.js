@@ -11,7 +11,9 @@ import {
   Loader2, 
   CheckCircle2, 
   AlertCircle,
-  Link as LinkIcon
+  Link as LinkIcon,
+  BookOpen,
+  UserCheck
 } from 'lucide-react';
 
 import Header from '../components/Header';
@@ -421,26 +423,36 @@ export default function AttendancePage() {
             {isConnected && (modulesList.length > 0 || tutorsList.length > 0) && (
               <div className="glass-panel helpers-bar">
                 <div className="helper-group">
-                  <span className="helper-label">Module:</span>
-                  <select 
-                    className="helper-select"
-                    value={selectedModule}
-                    onChange={(e) => setSelectedModule(e.target.value)}
-                  >
-                    <option value="">-- Select Module --</option>
-                    {modulesList.map((m, i) => <option key={i} value={m}>{m}</option>)}
-                  </select>
+                  <span className="helper-label">
+                    <BookOpen size={14} className="helper-label-icon" />
+                    <span>Module:</span>
+                  </span>
+                  <div className="helper-select-wrapper">
+                    <select 
+                      className="helper-select"
+                      value={selectedModule}
+                      onChange={(e) => setSelectedModule(e.target.value)}
+                    >
+                      <option value="">-- Select Module --</option>
+                      {modulesList.map((m, i) => <option key={i} value={m}>{m}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div className="helper-group">
-                  <span className="helper-label">Tutor:</span>
-                  <select 
-                    className="helper-select"
-                    value={selectedTutor}
-                    onChange={(e) => setSelectedTutor(e.target.value)}
-                  >
-                    <option value="">-- Select Tutor --</option>
-                    {tutorsList.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                  </select>
+                  <span className="helper-label">
+                    <UserCheck size={14} className="helper-label-icon" />
+                    <span>Tutor:</span>
+                  </span>
+                  <div className="helper-select-wrapper">
+                    <select 
+                      className="helper-select"
+                      value={selectedTutor}
+                      onChange={(e) => setSelectedTutor(e.target.value)}
+                    >
+                      <option value="">-- Select Tutor --</option>
+                      {tutorsList.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
             )}

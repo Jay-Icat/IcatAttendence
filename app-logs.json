@@ -1,5 +1,61 @@
 [
   {
+    "id": "1788589361790ymq7t",
+    "timestamp": "2026-09-05T06:22:41.790Z",
+    "level": "info",
+    "message": "Sync successful for GDD!",
+    "details": null
+  },
+  {
+    "id": "1788589361658yw33x",
+    "timestamp": "2026-09-05T06:22:41.658Z",
+    "level": "info",
+    "message": "Starting sync for GDD, Session: S2, Marked: 5",
+    "details": null
+  },
+  {
+    "id": "17885893529677r69w",
+    "timestamp": "2026-09-05T06:22:32.967Z",
+    "level": "info",
+    "message": "Sync successful for GDD!",
+    "details": null
+  },
+  {
+    "id": "1788589352862mqn6e",
+    "timestamp": "2026-09-05T06:22:32.862Z",
+    "level": "info",
+    "message": "Starting sync for GDD, Session: S2, Marked: 15",
+    "details": null
+  },
+  {
+    "id": "1788589341848ourec",
+    "timestamp": "2026-09-05T06:22:21.848Z",
+    "level": "info",
+    "message": "Sync successful for GDD!",
+    "details": null
+  },
+  {
+    "id": "1788589341743yozfw",
+    "timestamp": "2026-09-05T06:22:21.743Z",
+    "level": "info",
+    "message": "Starting sync for GDD, Session: S2, Marked: 6",
+    "details": null
+  },
+  {
+    "id": "1788589327668fz6je",
+    "timestamp": "2026-09-05T06:22:07.669Z",
+    "level": "info",
+    "message": "Sync successful for GDD!",
+    "details": null
+  },
+  {
+    "id": "1788589327568l4bjs",
+    "timestamp": "2026-09-05T06:22:07.568Z",
+    "level": "info",
+    "message": "Starting sync for GDD, Session: S2, Marked: 7",
+    "details": null
+  },
+  {
     "id": "1788588326610sd3zv",
     "timestamp": "2026-09-05T06:05:26.610Z",
     "level": "info",

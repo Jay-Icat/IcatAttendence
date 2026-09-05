@@ -18,23 +18,47 @@ export default function Header({
 }) {
   return (
     <header className="glass-panel app-header">
-      {/* App Branding */}
-      <div className="header-brand">
-        <div className="brand-icon">
-          <Sparkles size={20} className="brand-sparkle" />
+      {/* Brand & Utilities (Top row on mobile, split on desktop) */}
+      <div className="header-brand-row">
+        <div className="header-brand">
+          <div className="brand-icon">
+            <Sparkles size={20} className="brand-sparkle" />
+          </div>
+          <div className="brand-text">
+            <h1>AutoAttendance</h1>
+            <span className="brand-subtitle">Automated Attendance System</span>
+          </div>
         </div>
-        <div className="brand-text">
-          <h1>AutoAttendance</h1>
-          <span className="brand-subtitle">Automated Attendance System</span>
+
+        <div className="header-utilities">
+          {/* Live Sheet Status Pill */}
+          <div className="theme-status-pill" title={isConnected ? "Connected to Google Sheet" : "Offline"}>
+            <span className={`status-dot ${isConnected ? 'online' : 'offline'}`} />
+            <span className="status-label">{isConnected ? 'Connected' : 'Offline'}</span>
+          </div>
+
+          <Link href="/log" className="btn-theme-toggle" title="System Logs" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileText size={17} />
+          </Link>
+
+          {/* Theme Toggle Button */}
+          <button
+            className="btn-theme-toggle"
+            onClick={onToggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            type="button"
+          >
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
         </div>
       </div>
 
-      {/* Header Actions */}
-      <div className="header-actions">
+      {/* Selectors Row (Full width on mobile, right-aligned on desktop) */}
+      <div className="header-selectors">
         {/* Dev Mode Date Selector (Shown only in dev mode) */}
         {isDev && availableDates.length > 0 && (
           <div className="dept-dropdown-wrapper dev-date-wrapper" title="Dev Mode: Select Date">
-            <Calendar size={16} className="dept-icon dev-date-icon" />
+            <Calendar size={15} className="dept-icon dev-date-icon" />
             <select
               className="dept-select dev-date-select"
               value={selectedDate}
@@ -52,8 +76,8 @@ export default function Header({
 
         {/* Department Switcher */}
         {sheets.length > 0 && (
-          <div className="dept-dropdown-wrapper">
-            <Layers size={16} className="dept-icon" />
+          <div className="dept-dropdown-wrapper" title="Select Department Sheet">
+            <Layers size={15} className="dept-icon" />
             <select
               className="dept-select"
               value={activeSheet}
@@ -68,25 +92,6 @@ export default function Header({
             </select>
           </div>
         )}
-
-        {/* Live Sheet Status Pill (Obeys dark/light theme) */}
-        <div className="theme-status-pill" title={isConnected ? "Connected to Google Sheet" : "Offline"}>
-          <span className={`status-dot ${isConnected ? 'online' : 'offline'}`} />
-          <span className="status-label">{isConnected ? 'Connected' : 'Offline'}</span>
-        </div>
-
-        <Link href="/log" className="btn-theme-toggle" title="System Logs" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <FileText size={18} />
-        </Link>
-
-        {/* Theme Toggle Button */}
-        <button
-          className="btn-theme-toggle"
-          onClick={onToggleTheme}
-          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-        >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
       </div>
     </header>
   );
