@@ -1,5 +1,89 @@
 [
   {
+    "id": "1788600006783njn71",
+    "timestamp": "2026-09-05T09:20:06.783Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "1788600000910gw2ng",
+    "timestamp": "2026-09-05T09:20:00.910Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore first for ANIM",
+    "details": null
+  },
+  {
+    "id": "1788600000897zv6nt",
+    "timestamp": "2026-09-05T09:20:00.897Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore doc: NMuoIAFKNtE0TKdiT5sE",
+    "details": null
+  },
+  {
+    "id": "1788600000461jd8cn",
+    "timestamp": "2026-09-05T09:20:00.461Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S1, Marked: 13",
+    "details": null
+  },
+  {
+    "id": "178859998634280j92",
+    "timestamp": "2026-09-05T09:19:46.342Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "1788599978790tso6u",
+    "timestamp": "2026-09-05T09:19:38.791Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore first for ANIM",
+    "details": null
+  },
+  {
+    "id": "1788599978781h33ep",
+    "timestamp": "2026-09-05T09:19:38.781Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore doc: fKMi0EJ0C7bIbMGyoyBh",
+    "details": null
+  },
+  {
+    "id": "17885999783496c98x",
+    "timestamp": "2026-09-05T09:19:38.349Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S1, Marked: 13",
+    "details": null
+  },
+  {
+    "id": "1788599966411bg8f1",
+    "timestamp": "2026-09-05T09:19:26.411Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "1788599959089421ye",
+    "timestamp": "2026-09-05T09:19:19.089Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore first for ANIM",
+    "details": null
+  },
+  {
+    "id": "1788599959069672r4",
+    "timestamp": "2026-09-05T09:19:19.069Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore doc: WrLuqPPie3OR478FmzA1",
+    "details": null
+  },
+  {
+    "id": "1788599957715quvih",
+    "timestamp": "2026-09-05T09:19:17.715Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S1, Marked: 13",
+    "details": null
+  },
+  {
     "id": "1788593718411z3g07",
     "timestamp": "2026-09-05T07:35:18.411Z",
     "level": "info",

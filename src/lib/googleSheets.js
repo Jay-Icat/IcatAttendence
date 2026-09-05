@@ -85,52 +85,43 @@ export async function fetchSheetData(inputUrl, sheetName = 'IDS', columnMapping 
 }
 
 /**
- * 100% Guaranteed Attendance Sync Engine for Google Workspace Accounts
+ * Seamless, popup-less Attendance Sync Engine
+ * Proxies attendance writing through /api/sync for instant background execution
+ * across iOS/Android standalone WebApps and desktop browsers without popups.
  */
 export async function saveAttendanceToSheet(inputUrl, payload) {
   const targetScriptUrl = (inputUrl && inputUrl.includes('script.google.com')) 
     ? inputUrl.trim() 
     : DEFAULT_APPS_SCRIPT_URL;
 
-  const queryParams = new URLSearchParams({
-    action: 'saveAttendance',
-    sheetName: payload.sheetName || 'GT',
-    date: payload.date || '',
-    session: payload.session || '',
-    sessionCode: payload.sessionCode || '',
-    moduleTitle: payload.moduleTitle || '',
-    moduleTutor: payload.moduleTutor || '',
-    updates: JSON.stringify(payload.updates || [])
+  const response = await fetch('/api/sync', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      scriptUrl: targetScriptUrl,
+      sheetName: payload.sheetName || 'GT',
+      date: payload.date || '',
+      session: payload.session || '',
+      sessionCode: payload.sessionCode || '',
+      moduleTitle: payload.moduleTitle || '',
+      moduleTutor: payload.moduleTutor || '',
+      updates: payload.updates || []
+    })
   });
 
-  const syncTriggerUrl = `${targetScriptUrl}?${queryParams.toString()}`;
+  const data = await response.json();
 
-  // Open an authenticated sync window that passes Google Workspace login cookies
-  if (typeof window !== 'undefined') {
-    const syncWin = window.open(
-      syncTriggerUrl,
-      'google_sync_tab',
-      'width=520,height=420,top=200,left=300'
-    );
-
-    if (syncWin) {
-      // Auto-close popup window after Google Apps Script finishes writing
-      setTimeout(() => {
-        try {
-          if (syncWin && !syncWin.closed) {
-            syncWin.close();
-          }
-        } catch (e) {}
-      }, 2500);
-
-      return {
-        success: true,
-        message: 'Attendance synced to Google Sheet!'
-      };
-    }
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to sync attendance with Google Sheet');
   }
 
-  throw new Error('Please allow popups for localhost:3000 to enable Google Sheet writing.');
+  return {
+    success: true,
+    message: data.message || 'Attendance synced to Google Sheet!',
+    result: data.result || null
+  };
 }
 
 /**
