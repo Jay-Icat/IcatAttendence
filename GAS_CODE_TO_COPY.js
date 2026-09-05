@@ -1,7 +1,7 @@
 /**
  * ==========================================================================
  * AUTOATTENDANCE API CONNECTOR (Ultra-Precision Multi-Batch Indexing Engine)
- * Version: 4.3.0-bulletproof-indexer
+ * Version: 4.4.0-bulletproof-anim-all-batches
  * ==========================================================================
  */
 
@@ -10,7 +10,7 @@ function doGet(e) {
 
   if (e && e.parameter && (e.parameter.action === 'saveAttendance' || e.parameter.action === 'save')) {
     var resultText = output.success 
-      ? ("Successfully marked attendance for " + (output.result ? output.result.updatedCount : "1") + " students in " + (e.parameter.sheetName || "Sheet") + " (" + (output.result ? output.result.columnLetter : "") + ")!")
+      ? ("Successfully marked attendance for " + (output.result ? output.result.updatedCount : "1") + " students in " + (e.parameter.sheetName || "Sheet") + " (" + (output.result ? (output.result.batchKey + " - " + output.result.columnLetter) : "") + ")!")
       : ("Error: " + output.error);
 
     return HtmlService.createHtmlOutput(
@@ -84,7 +84,7 @@ function handleAttendanceRequest(e, method) {
     if (action === 'test' || action === 'ping') {
       output = { 
         success: true, 
-        version: "4.3.0-bulletproof-indexer",
+        version: "4.4.0-bulletproof-anim-all-batches",
         message: "Connected successfully!", 
         spreadsheetTitle: ss.getName(),
         sheets: deptSheets.length > 0 ? deptSheets : allSheets
@@ -165,11 +165,14 @@ function getDepartmentAttendanceData(sheet, params) {
         lower === 'name' || 
         lower === 'names' || 
         lower === 'candidate name' ||
-        lower.startsWith('module') || 
-        lower.startsWith('faculty') || 
-        lower.startsWith('department') ||
-        lower.startsWith('total') ||
-        lower.startsWith('tutor')) {
+        lower.indexOf('module') !== -1 || 
+        lower.indexOf('faculty') !== -1 || 
+        lower.indexOf('department') !== -1 ||
+        lower.indexOf('total') !== -1 ||
+        lower.indexOf('tutor') !== -1 ||
+        lower.indexOf('batch') !== -1 ||
+        lower.indexOf('attendance') !== -1 ||
+        lower === 'sl' || lower === 's.no' || lower === 'sl.no') {
       continue;
     }
 
@@ -196,16 +199,35 @@ function getDepartmentAttendanceData(sheet, params) {
 }
 
 /**
- * Builds a complete structural index of the spreadsheet tab:
- * - dateColumns: exact column where each date begins
- * - blocks: all batch tables, their title rows, tutor rows, session rows, and student rows
+ * Normalizes a string for robust batch matching
+ */
+function cleanBatchStr(str) {
+  if (!str) return "";
+  return String(str).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+}
+
+/**
+ * Normalizes a student name for robust matching (ignoring punctuation, spaces, case)
+ */
+function normalizeName(name) {
+  if (!name) return "";
+  return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Builds an ultra-precise, student-driven index of the spreadsheet:
+ * 1. Discovers every student and maps their true 1-indexed sheet row and batch.
+ * 2. Groups students into distinct batch blocks with strict boundaries [firstRow, lastRow].
+ * 3. Identifies the exact SessionRow, TutorRow, and TitleRow for each block.
+ * 4. Maps all date columns (e.g. 2026-09-04, 2026-09-07) across all date header rows.
  */
 function buildSheetIndex(values) {
   var numRows = values.length;
   var numCols = values[0] ? values[0].length : 0;
 
+  // 1. Date Columns Map (Scan rows 1 to 80 for date headers)
   var dateColumns = {};
-  for (var r = 0; r < Math.min(35, numRows); r++) {
+  for (var r = 0; r < Math.min(80, numRows); r++) {
     for (var c = 7; c < numCols; c++) {
       var cell = values[r][c];
       if (!cell) continue;
@@ -232,77 +254,139 @@ function buildSheetIndex(values) {
       }
 
       if (isoDate && !dateColumns[isoDate]) {
-        dateColumns[isoDate] = c + 1; // 1-indexed
+        dateColumns[isoDate] = c + 1; // 1-indexed column
       }
     }
   }
 
-  var blocks = [];
+  // 2. Discover all students with exact 1-indexed sheet row numbers
+  var allStudents = [];
   var currentDept = "General";
   var currentBatch = "IV";
+  var combinedBatch = "General - IV";
 
   for (var r = 0; r < numRows; r++) {
-    var colC = String(values[r][2] || '').trim();
-    var colD = String(values[r][3] || '').trim();
+    var idVal = String(values[r][0] !== undefined && values[r][0] !== null ? values[r][0] : '').trim();
+    var nameVal = String(values[r][1] !== undefined && values[r][1] !== null ? values[r][1] : '').trim();
+    var deptVal = String(values[r][2] !== undefined && values[r][2] !== null ? values[r][2] : '').trim();
+    var yearVal = String(values[r][3] !== undefined && values[r][3] !== null ? values[r][3] : '').trim();
 
-    if (colC && colC.toLowerCase() !== 'dept' && colC.toLowerCase() !== 'department') currentDept = colC;
-    if (colD && colD.toLowerCase() !== 'year' && colD.toLowerCase() !== 'batch' && colD.toLowerCase() !== 'sem') currentBatch = colD;
-
-    var isSessionRow = false;
-    for (var c = 7; c < Math.min(numCols, 60); c++) {
-      var h = String(values[r][c] || '').trim().toUpperCase();
-      if (h === 'S1' || h === 'S2' || h === 'S3') {
-        isSessionRow = true;
-        break;
-      }
+    var deptUpdated = false;
+    if (deptVal && deptVal.toLowerCase() !== 'dept' && deptVal.toLowerCase() !== 'department') {
+      currentDept = deptVal;
+      deptUpdated = true;
     }
 
-    if (isSessionRow) {
-      var sessionRow = r + 1;
-      var titleRow = -1;
-      var tutorRow = -1;
-      for (var checkR = r - 1; checkR >= Math.max(0, r - 4); checkR--) {
-        var label = String(values[checkR][1] || '').trim().toLowerCase();
-        if (label.indexOf('title') !== -1) titleRow = checkR + 1;
-        if (label.indexOf('tutor') !== -1) tutorRow = checkR + 1;
+    var yearUpdated = false;
+    if (yearVal && yearVal.toLowerCase() !== 'year' && yearVal.toLowerCase() !== 'batch' && yearVal.toLowerCase() !== 'sem') {
+      currentBatch = yearVal;
+      yearUpdated = true;
+    }
+    
+    if (deptUpdated || yearUpdated) {
+      combinedBatch = currentDept + " - " + currentBatch;
+    }
+
+    var lower = nameVal.toLowerCase();
+    if (!nameVal || 
+        lower === 'student name' || 
+        lower === 'name' || 
+        lower === 'names' || 
+        lower === 'candidate name' ||
+        lower.indexOf('module') !== -1 || 
+        lower.indexOf('faculty') !== -1 || 
+        lower.indexOf('department') !== -1 ||
+        lower.indexOf('total') !== -1 ||
+        lower.indexOf('tutor') !== -1 ||
+        lower.indexOf('batch') !== -1 ||
+        lower.indexOf('attendance') !== -1 ||
+        lower === 'sl' || lower === 's.no' || lower === 'sl.no') {
+      continue;
+    }
+
+    if (nameVal.length < 2) continue;
+
+    allStudents.push({
+      row: r + 1, // 1-indexed true sheet row
+      rollNo: idVal || String(allStudents.length + 1),
+      name: nameVal,
+      batchKey: combinedBatch
+    });
+  }
+
+  // 3. Group contiguous students into Batch Blocks
+  var blocks = [];
+  var currentBlock = null;
+
+  for (var i = 0; i < allStudents.length; i++) {
+    var st = allStudents[i];
+    if (!currentBlock || currentBlock.batchKey !== st.batchKey) {
+      if (currentBlock) {
+        blocks.push(currentBlock);
       }
-      if (titleRow === -1 && sessionRow > 2) titleRow = sessionRow - 2;
-      if (tutorRow === -1 && sessionRow > 2) tutorRow = sessionRow - 1;
 
-      var students = [];
-      for (var sR = r + 1; sR < numRows; sR++) {
-        var sName = String(values[sR][1] || '').trim();
-        var sDept = String(values[sR][2] || '').trim();
-        var sYear = String(values[sR][3] || '').trim();
-        var sLower = sName.toLowerCase();
+      var firstRow = st.row;
+      // Scan upwards from first student row to find Session, Tutor, and Title rows
+      var sessionRow = firstRow - 1;
+      var tutorRow = -1;
+      var titleRow = -1;
 
-        if (sDept && sDept.toLowerCase() !== 'dept' && sDept.toLowerCase() !== 'department') currentDept = sDept;
-        if (sYear && sYear.toLowerCase() !== 'year' && sYear.toLowerCase() !== 'batch') currentBatch = sYear;
-
-        if (!sName || sLower === 'student name' || sLower.indexOf('module') !== -1 || sLower.indexOf('tutor') !== -1) break;
-        if (sName.length >= 2) {
-          students.push({
-            row: sR + 1,
-            name: sName,
-            rollNo: String(values[sR][0] || '').trim(),
-            batchKey: currentDept + " - " + currentBatch
-          });
+      for (var scanR = firstRow - 2; scanR >= Math.max(0, firstRow - 6); scanR--) {
+        var label = String(values[scanR][1] || '').trim().toLowerCase();
+        if ((label.indexOf('tutor') !== -1 || label.indexOf('faculty') !== -1) && tutorRow === -1) {
+          tutorRow = scanR + 1;
+        }
+        if ((label.indexOf('title') !== -1 || label.indexOf('module') !== -1) && titleRow === -1) {
+          titleRow = scanR + 1;
         }
       }
 
-      if (students.length > 0) {
+      if (tutorRow === -1) tutorRow = Math.max(1, sessionRow - 1);
+      if (titleRow === -1) titleRow = Math.max(1, sessionRow - 2);
+
+      currentBlock = {
+        batchKey: st.batchKey,
+        firstRow: firstRow,
+        lastRow: firstRow,
+        sessionRow: sessionRow,
+        tutorRow: tutorRow,
+        titleRow: titleRow,
+        students: [st]
+      };
+    } else {
+      currentBlock.students.push(st);
+      currentBlock.lastRow = st.row;
+    }
+  }
+  if (currentBlock) {
+    blocks.push(currentBlock);
+  }
+
+  // Fallback: If no students found, scan for S1/S2/S3 headers (legacy support)
+  if (blocks.length === 0) {
+    var fallbackDept = "General";
+    var fallbackBatch = "IV";
+    for (var r = 0; r < numRows; r++) {
+      var isS = false;
+      for (var c = 7; c < Math.min(numCols, 60); c++) {
+        var h = String(values[r][c] || '').trim().toUpperCase();
+        if (h === 'S1' || h === 'S2' || h === 'S3') { isS = true; break; }
+      }
+      if (isS) {
         blocks.push({
-          batchKey: students[0].batchKey,
-          titleRow: titleRow,
-          tutorRow: tutorRow,
-          sessionRow: sessionRow,
-          students: students
+          batchKey: fallbackDept + " - " + fallbackBatch,
+          firstRow: r + 2,
+          lastRow: numRows,
+          sessionRow: r + 1,
+          tutorRow: Math.max(1, r),
+          titleRow: Math.max(1, r - 1),
+          students: []
         });
       }
     }
   }
 
-  return { dateColumns: dateColumns, blocks: blocks };
+  return { dateColumns: dateColumns, blocks: blocks, allStudents: allStudents };
 }
 
 /**
@@ -329,7 +413,7 @@ function safeSetCellValue(cell, value) {
 }
 
 /**
- * Saves attendance strictly to student rows, auto-healing any damaged headers and preventing corruption
+ * Saves attendance strictly to student rows with absolute batch isolation
  */
 function saveDepartmentAttendance(sheet, params) {
   var dateStr = params.date || ""; // e.g. "2026-09-04"
@@ -372,7 +456,7 @@ function saveDepartmentAttendance(sheet, params) {
       var tY = parseInt(parts[0], 10);
       var tM = parseInt(parts[1], 10);
       var tD = parseInt(parts[2], 10);
-      for (var r = 0; r < Math.min(30, numRows); r++) {
+      for (var r = 0; r < Math.min(80, numRows); r++) {
         for (var c = 7; c < numCols; c++) {
           var cellVal = values[r][c];
           if (!cellVal) continue;
@@ -392,56 +476,47 @@ function saveDepartmentAttendance(sheet, params) {
     throw new Error("Could not find column for Date " + dateStr + " in sheet " + sheet.getName());
   }
 
-  // 2. Identify target batch block
+  // 2. Identify target batch block with 100% precision
   var matchedBlock = null;
-  if (updates.length > 0) {
-    var first = updates[0];
-    // First try batchKey match
-    if (first.batchYear) {
-      var searchKey = String(first.batchYear).trim().toLowerCase();
-      for (var b = 0; b < index.blocks.length; b++) {
-        if (index.blocks[b].batchKey.toLowerCase() === searchKey) {
-          matchedBlock = index.blocks[b];
-          break;
-        }
-      }
-    }
-    // Next try student name match
-    if (!matchedBlock && first.name) {
-      var searchName = String(first.name).trim().toLowerCase();
-      for (var b = 0; b < index.blocks.length; b++) {
-        var blk = index.blocks[b];
-        for (var st = 0; st < blk.students.length; st++) {
-          if (blk.students[st].name.toLowerCase() === searchName) {
-            matchedBlock = blk;
-            break;
-          }
-        }
-        if (matchedBlock) break;
-      }
-    }
-    // Fallback: match by rowIndex if it exists within a block's students
-    if (!matchedBlock && first.rowIndex) {
-      for (var b = 0; b < index.blocks.length; b++) {
-        var blk = index.blocks[b];
-        for (var st = 0; st < blk.students.length; st++) {
-          if (blk.students[st].row === first.rowIndex) {
-            matchedBlock = blk;
-            break;
-          }
-        }
-        if (matchedBlock) break;
+  var targetBatchKey = params.batchYear || (updates.length > 0 ? updates[0].batchYear : "");
+
+  // Priority A: Match by batch key
+  if (targetBatchKey) {
+    var searchKey = cleanBatchStr(targetBatchKey);
+    for (var b = 0; b < index.blocks.length; b++) {
+      if (cleanBatchStr(index.blocks[b].batchKey) === searchKey) {
+        matchedBlock = index.blocks[b];
+        break;
       }
     }
   }
 
+  // Priority B: Match by student name across blocks
+  if (!matchedBlock && updates.length > 0) {
+    for (var u = 0; u < updates.length; u++) {
+      var sNameNorm = normalizeName(updates[u].name);
+      if (!sNameNorm) continue;
+      for (var b = 0; b < index.blocks.length; b++) {
+        var blk = index.blocks[b];
+        for (var s = 0; s < blk.students.length; s++) {
+          if (normalizeName(blk.students[s].name) === sNameNorm) {
+            matchedBlock = blk;
+            break;
+          }
+        }
+        if (matchedBlock) break;
+      }
+      if (matchedBlock) break;
+    }
+  }
+
+  // Priority C: Fallback to single block if sheet only has 1 block
+  if (!matchedBlock && index.blocks.length === 1) {
+    matchedBlock = index.blocks[0];
+  }
+
   if (!matchedBlock) {
-    matchedBlock = index.blocks.length > 0 ? index.blocks[0] : {
-      titleRow: 3,
-      tutorRow: 4,
-      sessionRow: 5,
-      students: []
-    };
+    throw new Error("Could not identify batch block for '" + (targetBatchKey || "attendance update") + "' in sheet " + sheet.getName());
   }
 
   // 3. Determine deterministic target column for this session
@@ -456,7 +531,7 @@ function saveDepartmentAttendance(sheet, params) {
     var checkCol = baseCol + sIdx;
     if (checkCol > numCols) continue;
     var expS = sessionLabels[sIdx];
-    var currentHeaderVal = String(sessionRowValues[checkCol - 1] || '').trim().toUpperCase();
+    var currentHeaderVal = sessionRowValues ? String(sessionRowValues[checkCol - 1] || '').trim().toUpperCase() : '';
     if (currentHeaderVal !== expS) {
       var sCell = sheet.getRange(matchedBlock.sessionRow, checkCol);
       safeSetCellValue(sCell, expS);
@@ -502,61 +577,41 @@ function saveDepartmentAttendance(sheet, params) {
     }
   }
 
-  // 6. Write attendance marks for each student with STRICT GUARD RAILS & TRUE ROW MATCHING
+  // 6. Write attendance marks for each student with STRICT BATCH ISOLATION
   var updatedCount = 0;
   for (var ru = 0; ru < updates.length; ru++) {
     var item = updates[ru];
     if (!item || !item.mark) continue;
 
     var targetRow = -1;
-    var cleanItemName = item.name ? String(item.name).trim().toLowerCase() : "";
-    var cleanItemRoll = item.rollNo ? String(item.rollNo).trim().toLowerCase() : "";
+    var rawItemName = item.name ? String(item.name).trim() : "";
+    var normItemName = normalizeName(rawItemName);
 
-    // Primary: Match by Name within matched block students
-    if (cleanItemName) {
+    // Primary: Match strictly by student name within the matched block ONLY
+    if (normItemName) {
       for (var s = 0; s < matchedBlock.students.length; s++) {
-        if (matchedBlock.students[s].name.toLowerCase() === cleanItemName) {
+        var stObj = matchedBlock.students[s];
+        if (normalizeName(stObj.name) === normItemName) {
+          targetRow = stObj.row;
+          break;
+        }
+      }
+    }
+
+    // Secondary: If not found by name, match by Roll Number within matchedBlock ONLY
+    if (targetRow === -1 && item.rollNo) {
+      var cleanRoll = String(item.rollNo).trim().toLowerCase();
+      for (var s = 0; s < matchedBlock.students.length; s++) {
+        if (String(matchedBlock.students[s].rollNo || '').trim().toLowerCase() === cleanRoll) {
           targetRow = matchedBlock.students[s].row;
           break;
         }
       }
     }
 
-    // Secondary: Match by Roll Number within matched block students
-    if (targetRow === -1 && cleanItemRoll) {
-      for (var s = 0; s < matchedBlock.students.length; s++) {
-        if (String(matchedBlock.students[s].rollNo || '').trim().toLowerCase() === cleanItemRoll) {
-          targetRow = matchedBlock.students[s].row;
-          break;
-        }
-      }
-    }
-
-    // Tertiary: Match across all indexed blocks by name
-    if (targetRow === -1 && cleanItemName) {
-      for (var b = 0; b < index.blocks.length; b++) {
-        var blk = index.blocks[b];
-        for (var s = 0; s < blk.students.length; s++) {
-          if (blk.students[s].name.toLowerCase() === cleanItemName) {
-            targetRow = blk.students[s].row;
-            break;
-          }
-        }
-        if (targetRow !== -1) break;
-      }
-    }
-
-    // Quaternary fallback: verify client rowIndex against valid student boundaries
-    if (targetRow === -1 && item.rowIndex) {
-      var candRow = parseInt(item.rowIndex, 10);
-      if (candRow > matchedBlock.sessionRow) {
-        targetRow = candRow;
-      }
-    }
-
-    // STRICT GUARD RAIL: Never write student marks to header rows (Title, Tutor, Session)
-    if (targetRow <= matchedBlock.sessionRow || targetRow <= matchedBlock.tutorRow || targetRow <= matchedBlock.titleRow) {
-      Logger.log("BLOCKED attendance mark from writing to header row: " + targetRow);
+    // ABSOLUTE GUARD RAIL: Ensure targetRow is strictly inside this batch's boundaries!
+    if (targetRow < matchedBlock.firstRow || targetRow > matchedBlock.lastRow) {
+      Logger.log("BLOCKED row " + targetRow + " outside batch [" + matchedBlock.firstRow + ", " + matchedBlock.lastRow + "] for student: " + rawItemName);
       continue;
     }
 

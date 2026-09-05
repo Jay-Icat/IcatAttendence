@@ -95,6 +95,7 @@ export async function saveAttendanceToSheet(inputUrl, payload) {
   const queryParams = new URLSearchParams({
     action: 'saveAttendance',
     sheetName: payload.sheetName || 'GT',
+    batchYear: payload.batchYear || '',
     date: payload.date || '',
     session: payload.session || '',
     sessionCode: payload.sessionCode || '',

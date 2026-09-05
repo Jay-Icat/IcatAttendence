@@ -248,10 +248,9 @@ export default function AttendancePage() {
     const updates = filteredStudents
       .filter((s) => currentAttendance[s.id])
       .map((s) => ({
-        rowIndex: s.rowIndex,
+        name: (s.name || '').trim(),
         rollNo: s.rollNo || s.id,
-        name: s.name,
-        batchYear: s.batchYear,
+        batchYear: s.batchYear || selectedBatch,
         mark: currentAttendance[s.id]
       }));
 
@@ -269,9 +268,10 @@ export default function AttendancePage() {
       return;
     }
 
-    Logger.info(`Starting sync for ${activeSheet}, Session: ${selectedSession}, Marked: ${markedCount}`);
+    Logger.info(`Starting sync for ${activeSheet}, Batch: ${selectedBatch}, Session: ${selectedSession}, Marked: ${markedCount}`);
     const payload = {
       sheetName: activeSheet,
+      batchYear: selectedBatch,
       date: effectiveDate,
       session: sessionObj.name,
       sessionCode: selectedSession,
