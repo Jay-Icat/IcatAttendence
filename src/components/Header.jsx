@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Sun, Moon, Layers, FileText, Calendar } from 'lucide-react';
-import Link from 'next/link';
+import { Sparkles, Sun, Moon, Layers, Calendar } from 'lucide-react';
 
 export default function Header({
   sheets = [],
@@ -36,10 +35,6 @@ export default function Header({
             <span className={`status-dot ${isConnected ? 'online' : 'offline'}`} />
             <span className="status-label">{isConnected ? 'Connected' : 'Offline'}</span>
           </div>
-
-          <Link href="/log" className="btn-theme-toggle" title="System Logs" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FileText size={17} />
-          </Link>
 
           {/* Theme Toggle Button */}
           <button

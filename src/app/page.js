@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Link as LinkIcon,
   BookOpen,
-  UserCheck
+  UserCheck,
+  FileText
 } from 'lucide-react';
 
 import Header from '../components/Header';
@@ -234,6 +235,14 @@ export default function AttendancePage() {
     setCurrentAttendance(updated);
   };
 
+  const handleMarkAllOD = () => {
+    const updated = { ...currentAttendance };
+    filteredStudents.forEach((s) => {
+      updated[s.id] = 'OD';
+    });
+    setCurrentAttendance(updated);
+  };
+
   // Marked Count
   const markedCount = useMemo(() => {
     return filteredStudents.filter((s) => currentAttendance[s.id]).length;
@@ -414,6 +423,16 @@ export default function AttendancePage() {
                   >
                     <XCircle size={15} />
                     <span>All Absent</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-all-od"
+                    onClick={handleMarkAllOD}
+                    title="Mark all filtered students On-Duty"
+                  >
+                    <FileText size={14} />
+                    <span>All OD</span>
                   </button>
                 </div>
               </div>

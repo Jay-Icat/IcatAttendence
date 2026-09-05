@@ -175,6 +175,13 @@ html, body {
   gap: 1.25rem;
 }
 
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
 /* Universal Select & Dropdown Styling */
 select {
   appearance: none;
@@ -603,6 +610,12 @@ select option {
   border-color: var(--status-absent-border);
 }
 
+.btn-all-od:hover {
+  background: var(--status-od-bg);
+  color: var(--status-od-text);
+  border-color: var(--status-od-border);
+}
+
 /* Student List Container */
 .student-list-container {
   padding: 0.5rem;
@@ -976,7 +989,8 @@ select option {
     padding: 0.85rem 0.65rem 6.5rem 0.65rem;
   }
 
-  .app-content {
+  .app-content,
+  .main-content {
     gap: 0.85rem;
   }
 
