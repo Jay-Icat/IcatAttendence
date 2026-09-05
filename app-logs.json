@@ -1,5 +1,103 @@
 [
   {
+    "id": "1788588326610sd3zv",
+    "timestamp": "2026-09-05T06:05:26.610Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "1788588326511na1wl",
+    "timestamp": "2026-09-05T06:05:26.511Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S2, Marked: 14",
+    "details": null
+  },
+  {
+    "id": "17885880899523d9nv",
+    "timestamp": "2026-09-05T06:01:29.952Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "1788588089842bufgo",
+    "timestamp": "2026-09-05T06:01:29.842Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S2, Marked: 13",
+    "details": null
+  },
+  {
+    "id": "1788588065945b7leg",
+    "timestamp": "2026-09-05T06:01:05.945Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "1788588065827u8w58",
+    "timestamp": "2026-09-05T06:01:05.827Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S3, Marked: 13",
+    "details": null
+  },
+  {
+    "id": "17885880434161lhzw",
+    "timestamp": "2026-09-05T06:00:43.416Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "178858804329232gpb",
+    "timestamp": "2026-09-05T06:00:43.292Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S1, Marked: 13",
+    "details": null
+  },
+  {
+    "id": "1788588021725bvtbp",
+    "timestamp": "2026-09-05T06:00:21.725Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "17885880215960jnur",
+    "timestamp": "2026-09-05T06:00:21.596Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S1, Marked: 33",
+    "details": null
+  },
+  {
+    "id": "1788588003608lrplj",
+    "timestamp": "2026-09-05T06:00:03.608Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "1788588003477js2rw",
+    "timestamp": "2026-09-05T06:00:03.477Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S1, Marked: 14",
+    "details": null
+  },
+  {
+    "id": "1788587985292ukdto",
+    "timestamp": "2026-09-05T05:59:45.292Z",
+    "level": "info",
+    "message": "Sync successful for ANIM!",
+    "details": null
+  },
+  {
+    "id": "1788587985176h6z6u",
+    "timestamp": "2026-09-05T05:59:45.176Z",
+    "level": "info",
+    "message": "Starting sync for ANIM, Session: S1, Marked: 7",
+    "details": null
+  },
+  {
     "id": "17885855852518u13l",
     "timestamp": "2026-09-05T05:19:45.251Z",
     "level": "info",
