@@ -75,6 +75,53 @@ export function getTodayISODate() {
   return `${year}-${month}-${day}`;
 }
 
+export function parseISODate(isoStr) {
+  if (!isoStr) return new Date();
+  const parts = isoStr.split('-').map(Number);
+  if (parts.length === 3) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  return new Date(isoStr);
+}
+
+export function isDateWeekend(dateOrIso) {
+  const d = typeof dateOrIso === 'string' ? parseISODate(dateOrIso) : (dateOrIso || new Date());
+  const day = d.getDay();
+  return day === 0 || day === 6;
+}
+
+export function formatCustomDate(dateOrIso) {
+  const d = typeof dateOrIso === 'string' ? parseISODate(dateOrIso) : (dateOrIso || new Date());
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  return d.toLocaleDateString('en-US', options);
+}
+
+export function getDaysInCurrentMonth(baseDate = new Date()) {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+
+  const days = [];
+  for (let day = 1; day <= totalDays; day++) {
+    const d = new Date(year, month, day);
+    const dayStr = String(day).padStart(2, '0');
+    const monthStr = String(month + 1).padStart(2, '0');
+    const iso = `${year}-${monthStr}-${dayStr}`;
+    const dayOfWeek = d.getDay();
+    const isWeekendDay = dayOfWeek === 0 || dayOfWeek === 6;
+    const weekdayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+
+    days.push({
+      iso,
+      day,
+      label: `Date: ${monthName} ${dayStr} (${weekdayName})${isWeekendDay ? ' - Weekend' : ''}`,
+      isWeekend: isWeekendDay
+    });
+  }
+  return days;
+}
+
 export const STORAGE_KEYS = {
   THEME: 'autoattend_theme',
   ACTIVE_SHEET: 'autoattend_active_dept',

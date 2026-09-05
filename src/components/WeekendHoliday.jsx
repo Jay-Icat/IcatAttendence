@@ -4,8 +4,9 @@ import React from 'react';
 import { Calendar, Sun, Sparkles } from 'lucide-react';
 import { getFormattedToday } from '../lib/constants';
 
-export default function WeekendHoliday() {
+export default function WeekendHoliday({ dateFormatted }) {
   const todayFormatted = getFormattedToday();
+  const displayDate = dateFormatted || todayFormatted;
 
   return (
     <div className="glass-panel weekend-card">
@@ -16,7 +17,7 @@ export default function WeekendHoliday() {
 
       <div className="weekend-date-badge">
         <Calendar size={16} />
-        <span>{todayFormatted}</span>
+        <span>{displayDate}</span>
       </div>
 
       <h2 className="weekend-title">Weekend Holiday!</h2>

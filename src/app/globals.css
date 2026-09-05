@@ -245,6 +245,48 @@ html, body {
   border-color: var(--border-focus);
 }
 
+.dev-date-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dev-date-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: #f59e0b !important;
+  pointer-events: none;
+}
+
+.dev-date-select {
+  appearance: none;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  padding: 0.45rem 2rem 0.45rem 2.2rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.dev-date-select:hover {
+  border-color: rgba(245, 158, 11, 0.7) !important;
+}
+
+.dev-date-select:focus {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.dept-select option,
+.dev-date-select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
 .theme-status-pill {
   display: flex;
   align-items: center;

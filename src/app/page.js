@@ -25,7 +25,10 @@ import {
   getSmartCurrentSession, 
   isWeekend, 
   getFormattedToday, 
-  getTodayISODate 
+  getTodayISODate,
+  isDateWeekend,
+  formatCustomDate,
+  getDaysInCurrentMonth
 } from '../lib/constants';
 import { fetchSheetData, saveAttendanceToSheet, fetchHelpersData } from '../lib/googleSheets';
 import { Logger } from "../lib/logger";
@@ -56,10 +59,35 @@ export default function AttendancePage() {
   const [selectedBatch, setSelectedBatch] = useState('ALL');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Session & Date State (Date is locked strictly to today)
+  // Dev mode detection (hidden in release/production mode)
+  const [isReleaseModeOverride, setIsReleaseModeOverride] = useState(false);
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('mode') === 'release' || params.get('release') === 'true') {
+          setIsReleaseModeOverride(true);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const isDev = process.env.NODE_ENV === 'development' && !isReleaseModeOverride;
+
+  // Session & Date State (In release mode locked strictly to today; in dev mode allows month override)
   const todayISO = getTodayISODate();
-  const todayFormatted = getFormattedToday();
-  const isTodayWeekend = isWeekend();
+  const [selectedDate, setSelectedDate] = useState(todayISO);
+
+  // Available dates in current month for dev selection
+  const availableDates = useMemo(() => {
+    return getDaysInCurrentMonth();
+  }, []);
+
+  // Effective date: in dev mode use selectedDate, in release mode strictly lock to today
+  const effectiveDate = isDev ? selectedDate : todayISO;
+  const effectiveDateFormatted = useMemo(() => formatCustomDate(effectiveDate), [effectiveDate]);
+  const isEffectiveWeekend = useMemo(() => isDateWeekend(effectiveDate), [effectiveDate]);
+
   const [selectedSession, setSelectedSession] = useState(getSmartCurrentSession());
 
   // Attendance State { studentId: 'P' | 'A' | 'OD' }
@@ -167,6 +195,12 @@ export default function AttendancePage() {
     setCurrentAttendance({});
   };
 
+  // Switch Date (Dev Mode)
+  const handleSelectDate = (newDate) => {
+    setSelectedDate(newDate);
+    setCurrentAttendance({});
+  };
+
   // Single Student Status Change (P, A, OD)
   const handleStatusChange = (studentId, newStatus) => {
     setCurrentAttendance((prev) => ({
@@ -238,7 +272,7 @@ export default function AttendancePage() {
     Logger.info(`Starting sync for ${activeSheet}, Session: ${selectedSession}, Marked: ${markedCount}`);
     const payload = {
       sheetName: activeSheet,
-      date: todayISO,
+      date: effectiveDate,
       session: sessionObj.name,
       sessionCode: selectedSession,
       moduleTitle: selectedModule,
@@ -287,6 +321,10 @@ export default function AttendancePage() {
           isConnected={isConnected}
           theme={theme}
           onToggleTheme={handleToggleTheme}
+          isDev={isDev}
+          selectedDate={effectiveDate}
+          onSelectDate={handleSelectDate}
+          availableDates={availableDates}
         />
 
                 {/* Connection Status Handling */}
@@ -306,9 +344,9 @@ export default function AttendancePage() {
           </div>
         )}
 
-        {/* If Today is Saturday or Sunday -> Weekend Screen */}
-        {isTodayWeekend ? (
-          <WeekendHoliday />
+        {/* If Selected/Today Date is Saturday or Sunday -> Weekend Screen */}
+        {isEffectiveWeekend ? (
+          <WeekendHoliday dateFormatted={effectiveDateFormatted} />
         ) : (
           /* Weekday Attendance Flow */
           <main className="main-content">
@@ -316,9 +354,9 @@ export default function AttendancePage() {
             <div className="glass-panel control-bar">
               {/* Left: Date Display & 3-Session Selector */}
               <div className="control-bar-left">
-                <div className="date-indicator" title="Current Date (Locked to Today)">
+                <div className="date-indicator" title={isDev ? "Selected Date (Dev Mode)" : "Current Date (Locked to Today)"}>
                   <Calendar size={16} className="date-icon" />
-                  <span>{todayFormatted}</span>
+                  <span>{effectiveDateFormatted}</span>
                 </div>
 
                 <div className="session-pill-group">
@@ -447,7 +485,7 @@ export default function AttendancePage() {
                     <strong>{markedCount}</strong> of {filteredStudents.length} Marked
                   </span>
                   <span className="sync-bar-details">
-                    {activeSheet} • {selectedSession} • {todayISO}
+                    {activeSheet} • {selectedSession} • {effectiveDate}
                   </span>
                 </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Sun, Moon, Layers, FileText } from 'lucide-react';
+import { Sparkles, Sun, Moon, Layers, FileText, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Header({
@@ -10,7 +10,11 @@ export default function Header({
   onSelectSheet,
   isConnected = true,
   theme = 'dark',
-  onToggleTheme
+  onToggleTheme,
+  isDev = false,
+  selectedDate = '',
+  onSelectDate,
+  availableDates = []
 }) {
   return (
     <header className="glass-panel app-header">
@@ -27,6 +31,25 @@ export default function Header({
 
       {/* Header Actions */}
       <div className="header-actions">
+        {/* Dev Mode Date Selector (Shown only in dev mode) */}
+        {isDev && availableDates.length > 0 && (
+          <div className="dept-dropdown-wrapper dev-date-wrapper" title="Dev Mode: Select Date">
+            <Calendar size={16} className="dept-icon dev-date-icon" />
+            <select
+              className="dept-select dev-date-select"
+              value={selectedDate}
+              onChange={(e) => onSelectDate && onSelectDate(e.target.value)}
+              title="Dev Mode Date Selector"
+            >
+              {availableDates.map((item) => (
+                <option key={item.iso} value={item.iso}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Department Switcher */}
         {sheets.length > 0 && (
           <div className="dept-dropdown-wrapper">
