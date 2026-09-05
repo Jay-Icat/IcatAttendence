@@ -20,6 +20,8 @@ import {
 import Header from '../components/Header';
 import StudentRow from '../components/StudentRow';
 import WeekendHoliday from '../components/WeekendHoliday';
+import LoginScreen from '../components/LoginScreen';
+import { useAuth } from '../context/AuthContext';
 import { 
   DEFAULT_SESSIONS, 
   DEFAULT_SHEET_URL, 
@@ -38,6 +40,9 @@ import { Logger } from "../lib/logger";
 import { ALL_DEPARTMENTS } from '../lib/gvizSheets';
 
 export default function AttendancePage() {
+  // Authentication state
+  const { user, loading: authLoading } = useAuth();
+
   // Theme state
   const [theme, setTheme] = useState('dark');
 
@@ -314,6 +319,32 @@ export default function AttendancePage() {
       setIsSyncing(false);
     }
   };
+
+  // Auth Loading Gate
+  if (authLoading) {
+    return (
+      <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', color: 'var(--text-secondary)' }}>
+          <Loader2 size={36} className="spin" style={{ color: 'var(--accent-primary)' }} />
+          <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Authenticating session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Unauthenticated Gate
+  if (!user) {
+    return (
+      <div className="app-container">
+        <Header
+          isConnected={isConnected}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+        />
+        <LoginScreen />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">

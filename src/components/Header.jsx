@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Sun, Moon, Layers, Calendar } from 'lucide-react';
+import { Sparkles, Sun, Moon, Layers, Calendar, LogOut, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Header({
   sheets = [],
@@ -15,6 +16,8 @@ export default function Header({
   onSelectDate,
   availableDates = []
 }) {
+  const { user, logout } = useAuth();
+
   return (
     <header className="glass-panel app-header">
       {/* Brand & Utilities (Top row on mobile, split on desktop) */}
@@ -36,6 +39,22 @@ export default function Header({
             <span className="status-label">{isConnected ? 'Connected' : 'Offline'}</span>
           </div>
 
+          {/* User Profile Badge (if logged in) */}
+          {user && (
+            <div className="user-profile-badge" title={`Signed in as ${user.displayName || user.email} (${user.email})`}>
+              {user.photoURL ? (
+                <img src={user.photoURL} alt={user.displayName || 'User'} className="user-avatar" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="user-avatar-placeholder">
+                  {(user.displayName || user.email || 'U')[0].toUpperCase()}
+                </div>
+              )}
+              <span className="user-name-text">
+                {user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
+              </span>
+            </div>
+          )}
+
           {/* Theme Toggle Button */}
           <button
             className="btn-theme-toggle"
@@ -45,6 +64,19 @@ export default function Header({
           >
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
+
+          {/* Sign Out Button (if logged in) */}
+          {user && (
+            <button
+              className="btn-sign-out"
+              onClick={logout}
+              title={`Sign Out (${user.email})`}
+              type="button"
+              aria-label="Sign Out"
+            >
+              <LogOut size={16} />
+            </button>
+          )}
         </div>
       </div>
 

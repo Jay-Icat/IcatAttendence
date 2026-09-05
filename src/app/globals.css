@@ -1162,3 +1162,308 @@ select option {
     font-size: 0.85rem;
   }
 }
+
+/* ==========================================================================
+   Login Screen & Access Control Styles
+   ========================================================================== */
+.login-screen-container {
+  min-height: calc(100vh - 4rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 460px;
+  padding: 2.75rem 2.25rem;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: var(--shadow-floating);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.login-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  background: var(--status-present-bg);
+  border: 1px solid var(--status-present-border);
+  color: var(--status-present-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 1.25rem;
+}
+
+.login-brand-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-md);
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin: 0 auto 1.25rem;
+  box-shadow: var(--accent-glow);
+}
+
+.login-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+  letter-spacing: -0.02em;
+}
+
+.login-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.75rem;
+  line-height: 1.4;
+}
+
+.login-config-alert {
+  width: 100%;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  font-size: 0.8rem;
+  color: #f59e0b;
+}
+
+.config-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.config-alert-text {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.config-alert-text code {
+  font-family: var(--font-mono);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.login-error-alert {
+  width: 100%;
+  background: var(--status-absent-bg);
+  border: 1px solid var(--status-absent-border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  text-align: left;
+  color: var(--status-absent-text);
+  animation: shake 0.3s ease-in-out;
+}
+
+.login-error-alert .error-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.login-error-alert .error-text {
+  flex: 1;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.login-error-alert .error-text strong {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.login-error-alert .error-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--status-absent-text);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.login-error-alert .error-dismiss:hover {
+  opacity: 1;
+}
+
+.login-action-area {
+  width: 100%;
+  margin-bottom: 1.75rem;
+}
+
+.btn-google-login {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-family: var(--font-main);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+}
+
+.btn-google-login:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--border-focus);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-google-login:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-google-login:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.google-icon {
+  flex-shrink: 0;
+}
+
+.login-arrow {
+  margin-left: auto;
+  opacity: 0.5;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.btn-google-login:hover .login-arrow {
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+.login-footer {
+  width: 100%;
+  border-top: 1px solid var(--border-color);
+  padding-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.login-policy-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.login-policy-tag code {
+  font-family: var(--font-mono);
+  background: var(--bg-input);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+}
+
+.login-policy-note {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+/* User Profile Badge in Header */
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.55rem 0.25rem 0.35rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+}
+
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+}
+
+.user-avatar-placeholder {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.user-name-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-sign-out {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-sign-out:hover {
+  background: var(--status-absent-bg);
+  border-color: var(--status-absent-border);
+  color: var(--status-absent-text);
+}
+

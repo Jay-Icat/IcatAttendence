@@ -1,4 +1,5 @@
 import './globals.css';
+import { AuthProvider } from '../context/AuthContext';
 
 export const metadata = {
   title: 'AutoAttendance | Automated Google Sheets Attendance Dashboard',
@@ -17,7 +18,9 @@ export default function RootLayout({ children }) {
           <div className="ambient-blob-1"></div>
           <div className="ambient-blob-2"></div>
         </div>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
