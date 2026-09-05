@@ -61,8 +61,9 @@ export default function Header({
             href="/history"
             className="btn-history-link"
             title="View Attendance History"
+            aria-label="View Attendance History"
           >
-            <History size={16} />
+            <History size={18} />
             <span className="history-btn-text">History</span>
           </Link>
 
@@ -73,7 +74,7 @@ export default function Header({
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
             type="button"
           >
-            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
           {/* Sign Out Button (if logged in) */}
@@ -85,7 +86,7 @@ export default function Header({
               type="button"
               aria-label="Sign Out"
             >
-              <LogOut size={16} />
+              <LogOut size={18} />
             </button>
           )}
         </div>

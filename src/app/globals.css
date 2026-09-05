@@ -278,6 +278,7 @@ select option {
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .brand-subtitle {
@@ -385,14 +386,17 @@ select option {
   background: var(--bg-input);
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   border-radius: var(--radius-md);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all var(--transition-fast);
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .btn-theme-toggle:hover {
@@ -979,6 +983,27 @@ select option {
     justify-content: space-between;
     align-items: center;
     width: 100%;
+    gap: 0.75rem;
+  }
+
+  .header-brand {
+    min-width: 0;
+  }
+
+  .brand-text h1 {
+    font-size: 1.1rem;
+    white-space: nowrap;
+  }
+
+  .brand-subtitle {
+    white-space: nowrap;
+  }
+
+  .header-utilities {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
   }
 
   .header-selectors {
@@ -1002,6 +1027,62 @@ select option {
 @media (max-width: 640px) {
   .app-container {
     padding: 0.85rem 0.65rem 6.5rem 0.65rem;
+  }
+
+  .header-brand-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .brand-text h1 {
+    font-size: 1.05rem;
+    white-space: nowrap;
+  }
+
+  .header-utilities {
+    gap: 0.35rem;
+  }
+
+  /* Compact utilities on mobile: hide labels, show icons to prevent any clipping */
+  .theme-status-pill {
+    padding: 0.3rem 0.45rem;
+    min-width: 28px;
+    height: 28px;
+    justify-content: center;
+  }
+
+  .theme-status-pill .status-label {
+    display: none;
+  }
+
+  .user-name-text {
+    max-width: 65px;
+  }
+
+  .btn-history-link {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .history-btn-text {
+    display: none;
+  }
+
+  .btn-theme-toggle,
+  .btn-sign-out {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+
+  .btn-history-link svg,
+  .btn-theme-toggle svg,
+  .btn-sign-out svg {
+    width: 17px !important;
+    height: 17px !important;
+    flex-shrink: 0;
   }
 
   .app-content,
@@ -1111,23 +1192,63 @@ select option {
     padding: 0.65rem 0.5rem 6.5rem 0.5rem;
   }
 
+  .header-brand-row {
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+  }
+
+  .brand-text h1 {
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .brand-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .user-name-text {
+    display: none;
+  }
+
+  .user-profile-badge {
+    padding: 0.15rem;
+  }
+
+  .header-utilities {
+    gap: 0.25rem;
+  }
+
+  .btn-history-link,
+  .btn-theme-toggle,
+  .btn-sign-out {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+  }
+
+  .btn-history-link svg,
+  .btn-theme-toggle svg,
+  .btn-sign-out svg {
+    width: 16px !important;
+    height: 16px !important;
+    flex-shrink: 0;
+  }
+
   .header-selectors {
     flex-direction: column;
     width: 100%;
     gap: 0.5rem;
   }
 
-  .brand-text h1 {
-    font-size: 1.05rem;
-  }
-
-  .brand-subtitle {
-    font-size: 0.68rem;
-  }
-
   .brand-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
   }
 
   .student-row-roll {
@@ -1472,17 +1593,20 @@ select option {
 }
 
 .btn-sign-out {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   border-radius: var(--radius-md);
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .btn-sign-out:hover {
@@ -1499,18 +1623,22 @@ select option {
 .btn-history-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
-  padding: 0.4rem 0.75rem;
+  padding: 0.35rem 0.65rem;
+  height: 34px;
   border-radius: var(--radius-md);
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-family: var(--font-main);
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
   transition: all var(--transition-fast);
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .btn-history-link:hover {
@@ -1518,6 +1646,15 @@ select option {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
   box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
+/* Ensure all action icons in header have identical dimensions & optical balance */
+.btn-history-link svg,
+.btn-theme-toggle svg,
+.btn-sign-out svg {
+  width: 18px !important;
+  height: 18px !important;
+  flex-shrink: 0;
 }
 
 /* History Page Layout */
