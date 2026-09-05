@@ -2,6 +2,10 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import AdminClient from './AdminClient';
 
+export const metadata = {
+  title: 'Admin | ICAT-Attendance',
+};
+
 export default function AdminPage() {
   let scriptContent = '';
   try {

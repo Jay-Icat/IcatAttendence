@@ -2,8 +2,13 @@ import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
 
 export const metadata = {
-  title: 'AutoAttendance | Automated Google Sheets Attendance Dashboard',
-  description: 'Effortlessly take and sync student attendance directly with your Google Sheet in real time with 1-click precision.',
+  title: 'ICAT-Attendance | Automated Attendance Portal',
+  description: 'Official student attendance system for ICAT Design & Media College. Effortlessly take and sync student attendance directly with Google Sheets in real time.',
+  icons: {
+    icon: '/icat-emblem.png',
+    shortcut: '/icat-emblem.png',
+    apple: '/icat-emblem.png',
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -11,7 +16,9 @@ export default function RootLayout({ children }) {
     <html lang="en" data-theme="dark">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>" />
+        <link rel="icon" type="image/png" href="/icat-emblem.png" />
+        <link rel="shortcut icon" href="/icat-emblem.png" />
+        <link rel="apple-touch-icon" href="/icat-emblem.png" />
       </head>
       <body>
         <div className="ambient-bg">

@@ -30,12 +30,12 @@ export default function LoginScreen() {
           </div>
 
           <div className="login-brand-icon">
-            <Sparkles size={28} className="brand-sparkle" />
+            <img src="/icat-emblem.png" alt="ICAT Emblem" className="login-emblem-img" />
           </div>
 
-          <h1 className="login-title">AutoAttendance</h1>
+          <h1 className="login-title">ICAT-Attendance</h1>
           <p className="login-subtitle">
-            ICAT Design & Media College Attendance Portal
+            ICAT Design &amp; Media College Attendance Portal
           </p>
         </div>
 

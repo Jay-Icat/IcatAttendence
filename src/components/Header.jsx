@@ -23,12 +23,12 @@ export default function Header({
       {/* Brand & Utilities (Top row on mobile, split on desktop) */}
       <div className="header-brand-row">
         <div className="header-brand">
-          <div className="brand-icon">
-            <Sparkles size={20} className="brand-sparkle" />
+          <div className="brand-icon brand-emblem-wrapper">
+            <img src="/icat-emblem.png" alt="ICAT" className="brand-emblem-img" />
           </div>
           <div className="brand-text">
-            <h1>AutoAttendance</h1>
-            <span className="brand-subtitle">Automated Attendance System</span>
+            <h1>ICAT-Attendance</h1>
+            <span className="brand-subtitle">ICAT Design &amp; Media College</span>
           </div>
         </div>
 

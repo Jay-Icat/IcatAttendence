@@ -64,13 +64,14 @@ export default function AdminClient({ scriptContent }) {
       }}>
         <div style={{ marginBottom: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{
-            background: 'rgba(99, 102, 241, 0.1)', padding: '1rem', borderRadius: '16px',
-            marginBottom: '1rem', border: '1px solid rgba(99, 102, 241, 0.2)', boxShadow: '0 0 30px rgba(99,102,241,0.15)'
+            background: 'rgba(255, 255, 255, 0.05)', padding: '0.75rem', borderRadius: '16px',
+            marginBottom: '1rem', border: '1px solid var(--border-glass)', boxShadow: '0 0 30px rgba(99,102,241,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-            <Settings size={40} color="#818cf8" />
+            <img src="/icat-emblem.png" alt="ICAT Emblem" style={{ width: '56px', height: '56px', objectFit: 'contain' }} />
           </div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>AutoAttendance</h1>
-          <p style={{ color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.25rem', textTransform: 'uppercase', fontSize: '0.85rem' }}>System Administration</p>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>ICAT-Attendance</h1>
+          <p style={{ color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.25rem', textTransform: 'uppercase', fontSize: '0.85rem' }}>ICAT College Administration</p>
         </div>
 
         <form onSubmit={handleLogin} style={{
@@ -133,11 +134,14 @@ export default function AdminClient({ scriptContent }) {
         padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '0.5rem', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-            <Settings size={24} color="#818cf8" />
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.05)', padding: '0.35rem', borderRadius: '8px',
+            border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <img src="/icat-emblem.png" alt="ICAT" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
           </div>
           <h1 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-            AutoAttendance <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem', textTransform: 'uppercase', marginLeft: '0.5rem' }}>Admin Panel</span>
+            ICAT-Attendance <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem', textTransform: 'uppercase', marginLeft: '0.5rem' }}>Admin Panel</span>
           </h1>
         </div>
         <button 

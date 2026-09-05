@@ -1,7 +1,7 @@
 import LogClient from './LogClient';
 
 export const metadata = {
-  title: 'Logs | AutoAttendance',
+  title: 'Logs | ICAT-Attendance',
 };
 
 export default function LogPage() {
