@@ -100,6 +100,7 @@ export function getDaysInCurrentMonth(baseDate = new Date()) {
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const totalDays = new Date(year, month + 1, 0).getDate();
+  const todayStr = getTodayISODate();
 
   const days = [];
   for (let day = 1; day <= totalDays; day++) {
@@ -111,12 +112,14 @@ export function getDaysInCurrentMonth(baseDate = new Date()) {
     const isWeekendDay = dayOfWeek === 0 || dayOfWeek === 6;
     const weekdayName = d.toLocaleDateString('en-US', { weekday: 'short' });
     const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+    const isToday = iso === todayStr;
 
     days.push({
       iso,
       day,
-      label: `Date: ${monthName} ${dayStr} (${weekdayName})${isWeekendDay ? ' - Weekend' : ''}`,
-      isWeekend: isWeekendDay
+      label: `Date: ${monthName} ${dayStr} (${weekdayName})${isToday ? ' • Today' : ''}${isWeekendDay ? ' - Weekend' : ''}`,
+      isWeekend: isWeekendDay,
+      isToday
     });
   }
   return days;

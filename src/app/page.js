@@ -83,17 +83,17 @@ export default function AttendancePage() {
 
   const isDev = process.env.NODE_ENV === 'development' && !isReleaseModeOverride;
 
-  // Session & Date State (In release mode locked strictly to today; in dev mode allows month override)
+  // Session & Date State (Allows month date selection across both release and dev modes)
   const todayISO = getTodayISODate();
   const [selectedDate, setSelectedDate] = useState(todayISO);
 
-  // Available dates in current month for dev selection
+  // Available dates in current month
   const availableDates = useMemo(() => {
     return getDaysInCurrentMonth();
   }, []);
 
-  // Effective date: in dev mode use selectedDate, in release mode strictly lock to today
-  const effectiveDate = isDev ? selectedDate : todayISO;
+  // Effective date: uses selectedDate (defaults to todayISO)
+  const effectiveDate = selectedDate || todayISO;
   const effectiveDateFormatted = useMemo(() => formatCustomDate(effectiveDate), [effectiveDate]);
   const isEffectiveWeekend = useMemo(() => isDateWeekend(effectiveDate), [effectiveDate]);
 
@@ -433,7 +433,7 @@ export default function AttendancePage() {
             <div className="glass-panel control-bar">
               {/* Left: Date Display & 3-Session Selector */}
               <div className="control-bar-left">
-                <div className="date-indicator" title={isDev ? "Selected Date (Dev Mode)" : "Current Date (Locked to Today)"}>
+                <div className="date-indicator" title="Selected Attendance Date">
                   <Calendar size={16} className="date-icon" />
                   <span>{effectiveDateFormatted}</span>
                 </div>

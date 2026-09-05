@@ -94,15 +94,16 @@ export default function Header({
 
       {/* Selectors Row (Full width on mobile, right-aligned on desktop) */}
       <div className="header-selectors">
-        {/* Dev Mode Date Selector (Shown only in dev mode) */}
-        {isDev && availableDates.length > 0 && (
-          <div className="dept-dropdown-wrapper dev-date-wrapper" title="Dev Mode: Select Date">
+        {/* Date Selector (Current Month) - Available in Release & Dev */}
+        {availableDates.length > 0 && (
+          <div className="dept-dropdown-wrapper dev-date-wrapper" title="Select Date (Current Month)">
             <Calendar size={15} className="dept-icon dev-date-icon" />
             <select
               className="dept-select dev-date-select"
               value={selectedDate}
               onChange={(e) => onSelectDate && onSelectDate(e.target.value)}
-              title="Dev Mode Date Selector"
+              title="Select Attendance Date"
+              aria-label="Select Attendance Date"
             >
               {availableDates.map((item) => (
                 <option key={item.iso} value={item.iso}>

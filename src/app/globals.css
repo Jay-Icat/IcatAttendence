@@ -332,13 +332,13 @@ select option {
 .dev-date-icon {
   position: absolute;
   left: 0.75rem;
-  color: #f59e0b !important;
+  color: var(--accent-primary);
   pointer-events: none;
   z-index: 2;
 }
 
 .dev-date-select {
-  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  border: 1px solid var(--border-glass) !important;
   padding: 0.45rem 2.2rem 0.45rem 2.2rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -346,12 +346,12 @@ select option {
 }
 
 .dev-date-select:hover {
-  border-color: rgba(245, 158, 11, 0.7) !important;
+  border-color: var(--border-focus) !important;
 }
 
 .dev-date-select:focus {
-  border-color: #f59e0b !important;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
 }
 
 .theme-status-pill {
