@@ -148,7 +148,7 @@ export default function AttendancePage() {
 
     try {
       const data = await fetchSheetData(activeUrl, targetSheet);
-      const helpers = await fetchHelpersData(activeUrl);
+      const helpers = await fetchHelpersData(activeUrl, targetSheet);
       
       setModulesList(helpers.modules || []);
       setTutorsList(helpers.tutors || []);
@@ -202,6 +202,7 @@ export default function AttendancePage() {
   const handleSelectSheet = (newSheet) => {
     setActiveSheet(newSheet);
     setCurrentAttendance({});
+    setSelectedModule('');
   };
 
   // Switch Date (Dev Mode)

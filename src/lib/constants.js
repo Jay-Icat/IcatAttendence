@@ -35,11 +35,11 @@ export const DEFAULT_SESSIONS = [
 ];
 
 // Hardcoded as requested
-export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1GR9hWCoRSDntN-oOtdx83hio_7Ol4RvDNRhVGH4310s/edit?gid=1032342523#gid=1032342523';
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/14QHvmOkx8V_V7tU7lhjxuMIGAvgt-wxqWR-8M_z2CSs/edit?gid=1861197937#gid=1861197937';
 
 export const DEFAULT_APPS_SCRIPT_URL = 
   process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || 
-  'https://script.google.com/macros/s/AKfycby9IEHhQ4yei1Du7y2LG_mFnqD5jP5Cj3b8lu4Ip84Ni1dkKDbQkWlueV-klVHFGRgxtw/exec';
+  'https://script.google.com/macros/s/AKfycbxDoPR9RpAKXFSL5y443IblRu6NNWp_SXN1pNGWMxgp6MkjecxBC5y6eUUaCSGRTJfX2w/exec';
 
 export function getSmartCurrentSession() {
   const now = new Date();
