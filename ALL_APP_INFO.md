@@ -166,10 +166,16 @@ d:\Projects\AutoAttendence\
   - Does not require server-side Google Service Accounts or API keys; works as long as the spreadsheet is accessible within the organization or via link sharing.
   - **Dynamic Department Discovery**: Preconfigured for all ICAT departments:
     `UID`, `GAD`, `GDD`, `GT`, `GRD`, `IDS`, `ANIM`, `VFX`, `Photography`, `MMT`, `FAD`.
-  - **Helper Parsing (`fetchHelperList`)**:
-    - Queries `Helper_Modules` sheet: Filters Column D for odd semester numbers (`1, 3, 5, 7`) AND matches Column B (`Program Title`) against the user's selected department (`ANIM`, `GDD`, `GT`, `UID`, etc.). Deduplicates titles from Column H. If a department has no specific match, safely falls back to all odd-semester modules so the user is never blocked.
-    - Employs an in-memory cache (`helperCache`) to avoid re-fetching static helper sheets across department tab switches.
-    - Automatically clears the selected module when switching between departments.
+  - **Helper Parsing (`fetchHelperList`) & Strict Program Isolation**:
+    - Queries `Helper_Modules` sheet: Filters Column D for odd semester numbers (`1, 3, 5, 7`) AND matches Column B (`Program Title`) using **strict exact equality** against the active academic program (`activeProgram`, derived dynamically from `selectedBatch` e.g. `PGPPGDD` from `PGPPGDD - I`, `MMT MSc` from `MMT MSc - I`, or fallback `activeSheet`).
+    - **Guaranteed Isolation**:
+      - `GDD` (32 odd modules) strictly excludes `PGPPGDD` (6 odd modules) and vice versa.
+      - `MMT` (32 odd modules) strictly excludes `MMT MSc` (21 odd modules) and `PGD MMT` (6 odd modules) and vice versa.
+      - `ANIM` (36 odd modules) strictly excludes `PGD 3D ANIM` (6 odd modules) and vice versa.
+      - `VFX` (33 odd modules) strictly excludes `PGD VFX` (6 odd modules) and vice versa.
+      - `UID` (33 odd modules) strictly excludes `PGD UID` (6 odd modules) and vice versa.
+    - Employs an in-memory cache (`helperCache`) to avoid re-fetching static helper sheets across department tab and batch switches.
+    - Automatically clears the selected module whenever the active program changes if the previous module does not belong to the newly selected program.
     - Queries `Helper_Tutors` sheet: Extracts faculty names from Column B (or fallback Column A).
   - **Student Parser**:
     - Column A: Roll Number / Student ID.

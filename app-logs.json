@@ -1,5 +1,61 @@
 [
   {
+    "id": "1788775604425smeym",
+    "timestamp": "2026-09-07T10:06:44.425Z",
+    "level": "info",
+    "message": "Sync successful for MMT!",
+    "details": null
+  },
+  {
+    "id": "1788775593270qlzih",
+    "timestamp": "2026-09-07T10:06:33.270Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore first for MMT",
+    "details": null
+  },
+  {
+    "id": "1788775593250bum0p",
+    "timestamp": "2026-09-07T10:06:33.250Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore doc: 9htptdjpGCW4KXekloJP",
+    "details": null
+  },
+  {
+    "id": "17887755917617lgkg",
+    "timestamp": "2026-09-07T10:06:31.761Z",
+    "level": "info",
+    "message": "Starting sync for MMT, Session: S1, Marked: 6",
+    "details": null
+  },
+  {
+    "id": "1788775379899s4g4s",
+    "timestamp": "2026-09-07T10:02:59.899Z",
+    "level": "info",
+    "message": "Sync successful for MMT!",
+    "details": null
+  },
+  {
+    "id": "1788775365122s5rs3",
+    "timestamp": "2026-09-07T10:02:45.122Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore first for MMT",
+    "details": null
+  },
+  {
+    "id": "1788775365103xkk5n",
+    "timestamp": "2026-09-07T10:02:45.103Z",
+    "level": "info",
+    "message": "Attendance history saved to Firestore doc: ezz4Yfwsaw28lFSCFRbY",
+    "details": null
+  },
+  {
+    "id": "17887753641343bmkl",
+    "timestamp": "2026-09-07T10:02:44.134Z",
+    "level": "info",
+    "message": "Starting sync for MMT, Session: S1, Marked: 7",
+    "details": null
+  },
+  {
     "id": "1788600006783njn71",
     "timestamp": "2026-09-05T09:20:06.783Z",
     "level": "info",

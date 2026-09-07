@@ -68,6 +68,43 @@ export default function AttendancePage() {
   const [selectedBatch, setSelectedBatch] = useState('ALL');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Active academic program strictly derived from selected batch (e.g. 'PGPPGDD' from 'PGPPGDD - I', 'MMT MSc' from 'MMT MSc - I', or activeSheet)
+  const activeProgram = useMemo(() => {
+    if (selectedBatch && selectedBatch !== 'ALL' && selectedBatch.includes(' - ')) {
+      return selectedBatch.split(' - ')[0].trim();
+    }
+    return activeSheet;
+  }, [selectedBatch, activeSheet]);
+
+  // Automatically update module dropdown whenever activeProgram changes, keeping strict isolation between GDD/PGPPGDD, MMT/MMT MSc, etc.
+  useEffect(() => {
+    let isMounted = true;
+    const updateModules = async () => {
+      const activeUrl = sheetUrl || DEFAULT_SHEET_URL || DEFAULT_APPS_SCRIPT_URL;
+      if (!activeUrl || !activeProgram) return;
+
+      try {
+        const helpers = await fetchHelpersData(activeUrl, activeProgram);
+        if (isMounted) {
+          setModulesList(helpers.modules || []);
+          setSelectedModule((prev) => {
+            if (prev && helpers.modules && !helpers.modules.includes(prev)) {
+              return '';
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to update modules for program:', activeProgram, err);
+      }
+    };
+
+    updateModules();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProgram, sheetUrl]);
+
   // Dev mode detection (hidden in release/production mode)
   const [isReleaseModeOverride, setIsReleaseModeOverride] = useState(false);
   useEffect(() => {
