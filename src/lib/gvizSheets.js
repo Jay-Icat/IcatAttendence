@@ -164,7 +164,26 @@ export async function fetchViaGviz(sheetId, sheetName = 'IDS', headerRow = 5) {
 // In-memory cache for helper sheets to avoid re-fetching across tab switches
 const helperCache = new Map();
 
-export async function fetchHelperList(sheetId, sheetName, targetDepartment = '') {
+/**
+ * Resolves a Roman numeral or batch string to an integer academic year (1, 2, 3, 4).
+ * Examples: 'I' -> 1, 'II' -> 2, 'GDD - II' -> 2, 'ANIM - IV' -> 4
+ */
+export function parseYearNumber(yearStrOrBatch) {
+  if (yearStrOrBatch === undefined || yearStrOrBatch === null) return null;
+  if (typeof yearStrOrBatch === 'number') return yearStrOrBatch;
+  const str = String(yearStrOrBatch).trim();
+  if (!str) return null;
+
+  // If passed "GDD - II", extract the year part "II"
+  const raw = str.includes(' - ') ? str.split(' - ')[1].trim().toUpperCase() : str.toUpperCase();
+  const romanMap = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
+  if (romanMap[raw]) return romanMap[raw];
+
+  const parsed = parseInt(raw, 10);
+  return isNaN(parsed) ? null : parsed;
+}
+
+export async function fetchHelperList(sheetId, sheetName, targetDepartment = '', targetYear = null) {
   const cacheKey = `${sheetId}_${sheetName}`;
   let rows = helperCache.get(cacheKey);
 
@@ -194,20 +213,30 @@ export async function fetchHelperList(sheetId, sheetName, targetDepartment = '')
   }
 
   if (sheetName === 'Helper_Modules') {
-    const deptOdd = [];
-    const allOdd = [];
-    const seenDept = new Set();
-    const seenAll = new Set();
+    const matchedModules = [];
+    const seenTitles = new Set();
     const normTargetDept = (targetDepartment || '').toLowerCase().trim();
+    const numericYear = targetYear !== null && targetYear !== undefined ? parseYearNumber(targetYear) : null;
 
     for (let r = 0; r < rows.length; r++) {
       const rowCells = rows[r]?.c || [];
       const progVal = String(rowCells[1]?.v !== undefined && rowCells[1]?.v !== null ? rowCells[1].v : '').trim();
+      const yearVal = parseInt(rowCells[2]?.v, 10);
       const semVal = String(rowCells[3]?.v !== undefined && rowCells[3]?.v !== null ? rowCells[3].v : '').trim();
       const semNum = parseInt(semVal, 10);
       
-      // Skip if not an odd semester
+      // 1. Must be an odd semester (1, 3, 5, 7)
       if (isNaN(semNum) || semNum % 2 === 0) {
+        continue;
+      }
+
+      // 2. Strict Program/Department match if specified (exact equality)
+      if (normTargetDept && progVal.toLowerCase() !== normTargetDept) {
+        continue;
+      }
+
+      // 3. Strict Year match if specified (no cross-year fallback)
+      if (numericYear !== null && yearVal !== numericYear) {
         continue;
       }
       
@@ -221,22 +250,13 @@ export async function fetchHelperList(sheetId, sheetName, targetDepartment = '')
         continue;
       }
 
-      if (!seenAll.has(val)) {
-        seenAll.add(val);
-        allOdd.push(val);
-      }
-
-      // Match Program Title with Selected Department (e.g. GDD, ANIM, GT, etc.)
-      if (normTargetDept && progVal.toLowerCase() === normTargetDept) {
-        if (!seenDept.has(val)) {
-          seenDept.add(val);
-          deptOdd.push(val);
-        }
+      if (!seenTitles.has(val)) {
+        seenTitles.add(val);
+        matchedModules.push(val);
       }
     }
 
-    // Return department-specific odd modules if found; otherwise fallback to all odd modules
-    return (normTargetDept && deptOdd.length > 0) ? deptOdd : allOdd;
+    return matchedModules;
   }
 
   // Generic/Helper_Tutors list extraction

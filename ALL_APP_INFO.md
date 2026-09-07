@@ -166,16 +166,21 @@ d:\Projects\AutoAttendence\
   - Does not require server-side Google Service Accounts or API keys; works as long as the spreadsheet is accessible within the organization or via link sharing.
   - **Dynamic Department Discovery**: Preconfigured for all ICAT departments:
     `UID`, `GAD`, `GDD`, `GT`, `GRD`, `IDS`, `ANIM`, `VFX`, `Photography`, `MMT`, `FAD`.
-  - **Helper Parsing (`fetchHelperList`) & Strict Program Isolation**:
-    - Queries `Helper_Modules` sheet: Filters Column D for odd semester numbers (`1, 3, 5, 7`) AND matches Column B (`Program Title`) using **strict exact equality** against the active academic program (`activeProgram`, derived dynamically from `selectedBatch` e.g. `PGPPGDD` from `PGPPGDD - I`, `MMT MSc` from `MMT MSc - I`, or fallback `activeSheet`).
-    - **Guaranteed Isolation**:
-      - `GDD` (32 odd modules) strictly excludes `PGPPGDD` (6 odd modules) and vice versa.
-      - `MMT` (32 odd modules) strictly excludes `MMT MSc` (21 odd modules) and `PGD MMT` (6 odd modules) and vice versa.
-      - `ANIM` (36 odd modules) strictly excludes `PGD 3D ANIM` (6 odd modules) and vice versa.
-      - `VFX` (33 odd modules) strictly excludes `PGD VFX` (6 odd modules) and vice versa.
-      - `UID` (33 odd modules) strictly excludes `PGD UID` (6 odd modules) and vice versa.
-    - Employs an in-memory cache (`helperCache`) to avoid re-fetching static helper sheets across department tab and batch switches.
-    - Automatically clears the selected module whenever the active program changes if the previous module does not belong to the newly selected program.
+  - **Helper Parsing (`fetchHelperList`) & Strict 3-Tier Module Filtering**:
+    - Queries `Helper_Modules` sheet with 3 strict criteria:
+      1. **Odd Semester Filter**: Col D (`Sem`) must be odd (`1, 3, 5, 7`).
+      2. **Strict Program Title Isolation**: Col B (`Program Title`) must match `activeProgram` exactly (e.g. `PGPPGDD` from `PGPPGDD - I`, `MMT MSc` from `MMT MSc - I`, or `activeSheet`).
+      3. **Strict Academic Year Scoping**: Col C (`Year`) must match `activeYearNumber` (`1, 2, 3, 4`) resolved from `selectedBatch` via `parseYearNumber()`. No cross-year fallback dumping.
+    - **Guaranteed Isolation & Precision**:
+      - `GDD` Year 1: Exactly 8 odd modules.
+      - `GDD` Year 2: Exactly 12 odd modules.
+      - `GDD` Year 3: Exactly 13 odd modules.
+      - `PGPPGDD` Year 1: Exactly 6 odd modules (strictly isolated from `GDD`).
+      - `MMT` Year 1: Exactly 8 odd modules (strictly isolated from `MMT MSc`).
+      - `MMT MSc` Year 1: Exactly 9 odd modules (strictly isolated from `MMT`).
+      - `ANIM` Year 1/2/3/4: Scoped strictly per year.
+    - Employs an in-memory cache (`helperCache`) to avoid re-fetching static helper sheets across department tab and year switches.
+    - Automatically clears the selected module whenever the active program or year changes if the previous module does not belong to the newly scoped module list.
     - Queries `Helper_Tutors` sheet: Extracts faculty names from Column B (or fallback Column A).
   - **Student Parser**:
     - Column A: Roll Number / Student ID.

@@ -6,14 +6,14 @@ import { extractSheetId, fetchViaGviz, fetchHelperList } from './gvizSheets';
 import { DEFAULT_APPS_SCRIPT_URL } from './constants';
 import { Logger } from './logger';
 
-export async function fetchHelpersData(inputUrl, targetDepartment = '') {
+export async function fetchHelpersData(inputUrl, targetDepartment = '', targetYear = null) {
   if (!inputUrl) return { modules: [], tutors: [] };
   
   const clean = inputUrl.trim();
   const sheetId = extractSheetId(clean);
   
   if (sheetId) {
-    const modules = await fetchHelperList(sheetId, 'Helper_Modules', targetDepartment);
+    const modules = await fetchHelperList(sheetId, 'Helper_Modules', targetDepartment, targetYear);
     const tutors = await fetchHelperList(sheetId, 'Helper_Tutors');
     return { modules, tutors };
   }

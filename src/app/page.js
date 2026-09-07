@@ -38,7 +38,7 @@ import {
 } from '../lib/constants';
 import { fetchSheetData, saveAttendanceToSheet, fetchHelpersData } from '../lib/googleSheets';
 import { Logger } from "../lib/logger";
-import { ALL_DEPARTMENTS } from '../lib/gvizSheets';
+import { ALL_DEPARTMENTS, parseYearNumber } from '../lib/gvizSheets';
 
 export default function AttendancePage() {
   // Authentication state
@@ -76,7 +76,15 @@ export default function AttendancePage() {
     return activeSheet;
   }, [selectedBatch, activeSheet]);
 
-  // Automatically update module dropdown whenever activeProgram changes, keeping strict isolation between GDD/PGPPGDD, MMT/MMT MSc, etc.
+  // Active academic year number (1, 2, 3, 4) strictly derived from selected batch (e.g. 'I' -> 1, 'II' -> 2, 'GDD - II' -> 2)
+  const activeYearNumber = useMemo(() => {
+    if (selectedBatch && selectedBatch !== 'ALL') {
+      return parseYearNumber(selectedBatch);
+    }
+    return null;
+  }, [selectedBatch]);
+
+  // Automatically update module dropdown whenever activeProgram or activeYearNumber changes, keeping strict isolation between GDD/PGPPGDD, MMT/MMT MSc, and Years
   useEffect(() => {
     let isMounted = true;
     const updateModules = async () => {
@@ -84,7 +92,7 @@ export default function AttendancePage() {
       if (!activeUrl || !activeProgram) return;
 
       try {
-        const helpers = await fetchHelpersData(activeUrl, activeProgram);
+        const helpers = await fetchHelpersData(activeUrl, activeProgram, activeYearNumber);
         if (isMounted) {
           setModulesList(helpers.modules || []);
           setSelectedModule((prev) => {
@@ -95,7 +103,7 @@ export default function AttendancePage() {
           });
         }
       } catch (err) {
-        console.warn('Failed to update modules for program:', activeProgram, err);
+        console.warn('Failed to update modules for program:', activeProgram, 'year:', activeYearNumber, err);
       }
     };
 
@@ -103,7 +111,7 @@ export default function AttendancePage() {
     return () => {
       isMounted = false;
     };
-  }, [activeProgram, sheetUrl]);
+  }, [activeProgram, activeYearNumber, sheetUrl]);
 
   // Dev mode detection (hidden in release/production mode)
   const [isReleaseModeOverride, setIsReleaseModeOverride] = useState(false);
@@ -185,22 +193,31 @@ export default function AttendancePage() {
 
     try {
       const data = await fetchSheetData(activeUrl, targetSheet);
-      const helpers = await fetchHelpersData(activeUrl, targetSheet);
       
-      setModulesList(helpers.modules || []);
-      setTutorsList(helpers.tutors || []);
+      let initialProgram = targetSheet;
+      let initialYearNumber = null;
       
       if (data.success && data.data) {
         setIsConnected(true);
         setStudents(data.data.students || []);
         if (data.data.batches && data.data.batches.length > 0) {
           setBatches(data.data.batches);
-          setSelectedBatch(data.data.batches[0]);
+          const firstBatch = data.data.batches[0];
+          setSelectedBatch(firstBatch);
+          if (firstBatch.includes(' - ')) {
+            initialProgram = firstBatch.split(' - ')[0].trim();
+          }
+          initialYearNumber = parseYearNumber(firstBatch);
         } else {
           setBatches(['IV', 'III', 'II', 'I']);
           setSelectedBatch('IV');
+          initialYearNumber = 4;
         }
       }
+
+      const helpers = await fetchHelpersData(activeUrl, initialProgram, initialYearNumber);
+      setModulesList(helpers.modules || []);
+      setTutorsList(helpers.tutors || []);
     } catch (err) {
       Logger.warn(`Could not load sheet data for ${targetSheet}`, err.message);
       setIsConnected(false);
