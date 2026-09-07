@@ -18,7 +18,7 @@ export default function StudentRow({
         <div className="student-row-info">
           <span className="student-row-name">{name}</span>
           {batchYear && batchYear !== 'General' && (
-            <span className="student-row-batch">Batch {batchYear}</span>
+            <span className="student-row-batch">Year {batchYear}</span>
           )}
         </div>
       </div>

@@ -114,19 +114,19 @@ export default function Header({
           </div>
         )}
 
-        {/* Department Switcher */}
+        {/* Batch Switcher */}
         {sheets.length > 0 && (
-          <div className="dept-dropdown-wrapper" title="Select Department Sheet">
+          <div className="dept-dropdown-wrapper" title="Select Batch">
             <Layers size={15} className="dept-icon" />
             <select
               className="dept-select"
               value={activeSheet}
               onChange={(e) => onSelectSheet(e.target.value)}
-              title="Select Department Sheet"
+              title="Select Batch"
             >
               {sheets.map((s) => (
                 <option key={s} value={s}>
-                  Department: {s}
+                  Batch: {s}
                 </option>
               ))}
             </select>

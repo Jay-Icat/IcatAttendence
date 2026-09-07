@@ -260,6 +260,11 @@ d:\Projects\AutoAttendence\
 
 ## 6. Business Logic, Rules & Conventions
 
+### UI Terminology & Labeling Convention
+- **Primary Top Selector (Header)**: Labeled **"Batch"** (formerly "Department"). Displays the department / major program code (`Batch: UID`, `Batch: GDD`, `Batch: GT`, etc.).
+- **Sub-Selector (Control Bar)**: Labeled **"Year"** (formerly "Batch"). Filters the academic year / cohort within that batch (e.g. `Year: GDD - I`, `Year: GDD - II`, `Year: PGPPGDD - I`).
+- **Student Badges & History**: Renders as `Year ...` and `Batch & Year`.
+
 ### Session Schedules
 Configured in `src/lib/constants.js`:
 - **S1 (Session 1)**: `09:15 AM - 11:00 AM`

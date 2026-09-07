@@ -41,20 +41,20 @@ export default function ActionBar({
           />
         </div>
 
-        {/* Batch Year Dropdown Filter if available */}
+        {/* Year Dropdown Filter if available */}
         {batches.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <select
               className="input-control"
               value={selectedBatch}
               onChange={(e) => onSelectBatch(e.target.value)}
-              title="Filter by Batch / Year"
+              title="Filter by Year"
               style={{ minWidth: '130px' }}
             >
-              <option value="ALL">🎓 All Batches</option>
+              <option value="ALL">🎓 All Years</option>
               {batches.map((b) => (
                 <option key={b} value={b}>
-                  Batch {b}
+                  {b.startsWith('Year') ? b : `Year ${b}`}
                 </option>
               ))}
             </select>

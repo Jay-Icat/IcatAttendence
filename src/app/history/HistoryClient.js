@@ -218,18 +218,18 @@ export default function HistoryClient() {
         {/* Filter Controls Bar */}
         <section className="glass-panel history-filter-bar">
           <div className="history-filter-group">
-            {/* Department Dropdown */}
-            <div className="dept-dropdown-wrapper" title="Filter by Department">
+            {/* Batch Dropdown */}
+            <div className="dept-dropdown-wrapper" title="Filter by Batch">
               <Layers size={15} className="dept-icon" />
               <select
                 className="dept-select"
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
               >
-                <option value="ALL">All Departments</option>
+                <option value="ALL">All Batches</option>
                 {ALL_DEPARTMENTS.map((dept) => (
                   <option key={dept} value={dept}>
-                    Department: {dept}
+                    Batch: {dept}
                   </option>
                 ))}
               </select>
@@ -350,10 +350,10 @@ export default function HistoryClient() {
                         </span>
                       </div>
 
-                      {/* Department & Batch */}
+                      {/* Batch & Year */}
                       <div className="history-info-cell">
                         <span className="info-cell-label">
-                          <Layers size={13} /> Department &amp; Batch
+                          <Layers size={13} /> Batch &amp; Year
                         </span>
                         <div className="info-cell-badges">
                           <span className="badge-dept">{item.department}</span>
@@ -410,7 +410,7 @@ export default function HistoryClient() {
                                 <tr>
                                   <th>Roll</th>
                                   <th>Student Name</th>
-                                  <th>Batch</th>
+                                  <th>Year</th>
                                   <th>Status</th>
                                 </tr>
                               </thead>

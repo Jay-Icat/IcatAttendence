@@ -491,19 +491,21 @@ export default function AttendancePage() {
                 </div>
               </div>
 
-              {/* Right: Batch Filter & Quick Actions */}
+              {/* Right: Year Filter & Quick Actions */}
               <div className="control-bar-right">
                 {batches.length > 0 && (
-                  <div className="batch-select-wrapper">
+                  <div className="batch-select-wrapper" title="Select Year">
                     <Filter size={14} className="batch-icon" />
                     <select
                       className="batch-select"
                       value={selectedBatch}
                       onChange={(e) => setSelectedBatch(e.target.value)}
+                      title="Select Year"
+                      aria-label="Select Year"
                     >
                       {batches.map((b) => (
                         <option key={b} value={b}>
-                          {b}
+                          {b.startsWith('Year') ? b : `Year: ${b}`}
                         </option>
                       ))}
                     </select>
