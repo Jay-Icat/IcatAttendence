@@ -247,11 +247,16 @@ d:\Projects\AutoAttendence\
   - Whenever a new history record is saved, the application initiates an asynchronous purge of any document where `monthKey < currentMonthKey`.
   - The `/history` page exclusively queries documents matching `monthKey == currentMonthKey`, ensuring clean month-to-month rollovers.
 
-### 5.5. Administration Portal (`/admin`)
-- **Source Files**: `src/app/admin/AdminClient.js`, `src/app/admin/page.js`
-- **Security**: Hardcoded administrative password (`rajivicatdrao`).
+### 5.5. Administration Portal & Cloud Configuration (`/admin`)
+- **Source Files**: `src/app/admin/AdminClient.js`, `src/app/admin/page.js`, `src/lib/appConfig.js`, `firestore.rules`
+- **Security**: Administrative password authentication (`rajivicatdrao`).
+- **Cloud Configuration Persistence (`src/lib/appConfig.js`)**:
+  - Automatically persists the **Google Sheet URL**, **Apps Script Web App URL**, and **Backend Script Code** to **Cloud Firestore** (`app_config/settings`, with fallback to `attendance_history/_app_config_settings_`).
+  - **Multi-Device & Cross-System Availability**: When any administrator or teacher opens the app on a new device, mobile browser, or Vercel deployment, the portal automatically retrieves the cloud-configured URLs from Firebase Firestore and populates the application.
+  - **Local Storage Mirroring**: Configurations are also cached in `localStorage` (`autoattend_sheet_url`, `autoattend_script_url`) for instant local startup.
+  - Features real-time "Cloud Synced" status badge with timestamps in the Admin panel.
 - **Functionality**:
-  - Allows administrators to update and persist the target Google Sheet URL and Apps Script `/exec` URL in `localStorage`.
+  - Allows administrators to update target Google Sheet and Apps Script URLs with instant cloud sync to all users.
   - Provides a comprehensive, step-by-step guide for Google Apps Script deployment (covering both first-time deployment and "New version" updates).
   - Features 1-click clipboard copying of the complete `AutoAttendenceAPI.gs` code.
 
@@ -269,6 +274,13 @@ d:\Projects\AutoAttendence\
 - **Primary Top Selector (Header)**: Labeled **"Batch"** (formerly "Department"). Displays the department / major program code (`Batch: UID`, `Batch: GDD`, `Batch: GT`, etc.).
 - **Sub-Selector (Control Bar)**: Labeled **"Year"** (formerly "Batch"). Filters the academic year / cohort within that batch (e.g. `Year: GDD - I`, `Year: GDD - II`, `Year: PGPPGDD - I`).
 - **Student Badges & History**: Renders as `Year ...` and `Batch & Year`.
+
+### Per-Account Department Tab Memory (`autoattend_active_dept`)
+- **Key Convention**: Persisted per account via `localStorage.getItem('autoattend_active_dept_' + user.email)` with a global fallback `localStorage.getItem('autoattend_active_dept')`.
+- **Cloud Synchronization**: Preferences are synced to Cloud Firestore (`app_config/user_<sanitizedEmail>`).
+- **Behavior**:
+  - The portal initializes directly to the user's last selected department tab on refresh or re-open, eliminating default `GT` resets.
+  - Teachers switching devices or accounts automatically see their own last active department tab upon Google login.
 
 ### Session Schedules
 Configured in `src/lib/constants.js`:

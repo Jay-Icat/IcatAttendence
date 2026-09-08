@@ -1,7 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Lock, Check, Copy, FileCode2, Info, ChevronRight, AlertTriangle, Link as LinkIcon, Save } from 'lucide-react';
+import { 
+  Settings, 
+  Lock, 
+  Check, 
+  Copy, 
+  FileCode2, 
+  Info, 
+  ChevronRight, 
+  AlertTriangle, 
+  Link as LinkIcon, 
+  Save,
+  Cloud,
+  Loader2
+} from 'lucide-react';
+import { fetchAppConfig, saveAppConfig } from '../../lib/appConfig';
 
 export default function AdminClient({ scriptContent }) {
   const [password, setPassword] = useState('');
@@ -11,12 +25,32 @@ export default function AdminClient({ scriptContent }) {
   const [sheetUrl, setSheetUrl] = useState('');
   const [scriptUrl, setScriptUrl] = useState('');
   const [savedSettings, setSavedSettings] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [cloudSynced, setCloudSynced] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [saveStatusMessage, setSaveStatusMessage] = useState('');
 
   useEffect(() => {
-    try {
-      setSheetUrl(localStorage.getItem('autoattend_sheet_url') || '');
-      setScriptUrl(localStorage.getItem('autoattend_script_url') || '');
-    } catch (e) {}
+    let isMounted = true;
+    const loadConfig = async () => {
+      try {
+        const config = await fetchAppConfig();
+        if (!isMounted) return;
+        if (config.sheetUrl) setSheetUrl(config.sheetUrl);
+        if (config.scriptUrl) setScriptUrl(config.scriptUrl);
+        setCloudSynced(config.isFromCloud);
+        if (config.updatedAtMs) {
+          setLastUpdated(new Date(config.updatedAtMs).toLocaleString());
+        }
+      } catch (e) {
+        console.warn('Admin: could not load cloud config:', e);
+      }
+    };
+
+    loadConfig();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleLogin = (e) => {
@@ -35,24 +69,27 @@ export default function AdminClient({ scriptContent }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const saveSettings = () => {
+  const saveSettings = async () => {
+    setIsSaving(true);
+    setSaveStatusMessage('');
     try {
-      if (sheetUrl) {
-        localStorage.setItem('autoattend_sheet_url', sheetUrl);
-      } else {
-        localStorage.removeItem('autoattend_sheet_url');
-      }
-      
-      if (scriptUrl) {
-        localStorage.setItem('autoattend_script_url', scriptUrl);
-      } else {
-        localStorage.removeItem('autoattend_script_url');
-      }
-      
+      const res = await saveAppConfig({
+        sheetUrl,
+        scriptUrl,
+        scriptCode: scriptContent
+      });
+
       setSavedSettings(true);
-      setTimeout(() => setSavedSettings(false), 2000);
+      setCloudSynced(true);
+      setLastUpdated(new Date().toLocaleString());
+      setSaveStatusMessage(res.cloudSaved 
+        ? 'Saved to Firebase Cloud! Live for all devices.' 
+        : 'Saved to local browser storage.');
+      setTimeout(() => setSavedSettings(false), 3500);
     } catch (e) {
-      alert("Failed to save settings to browser storage.");
+      alert(`Could not save to Firebase Cloud: ${e.message}\nSettings have been saved to this local browser.`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -162,13 +199,35 @@ export default function AdminClient({ scriptContent }) {
           background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
           borderRadius: '24px', padding: '2.5rem', boxShadow: 'var(--shadow-md)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.75rem' }}>
-            <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-              <LinkIcon size={24} color="#34d399" />
-            </div>
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Target Sheet Configuration</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>Update the Google Sheet URL if you are using a new copy of the attendance sheet.</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                <LinkIcon size={24} color="#34d399" />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Target Sheet Configuration</h2>
+                  {cloudSynced && (
+                    <span style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#34d399',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      padding: '0.25rem 0.65rem',
+                      borderRadius: '100px',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem'
+                    }}>
+                      <Cloud size={13} /> Firebase Cloud Synced {lastUpdated ? `• ${lastUpdated}` : ''}
+                    </span>
+                  )}
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
+                  Saved configurations are stored in Firebase Cloud so they apply across all systems, phones, and Vercel deployments.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -268,21 +327,32 @@ export default function AdminClient({ scriptContent }) {
               </p>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
               <button 
                 onClick={saveSettings}
+                disabled={isSaving}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.5rem',
                   background: savedSettings ? 'rgba(16, 185, 129, 0.2)' : 'var(--accent-gradient)',
                   color: savedSettings ? '#34d399' : '#fff',
                   border: savedSettings ? '1px solid rgba(16, 185, 129, 0.4)' : 'none',
                   padding: '0.75rem 1.5rem', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 600,
-                  cursor: 'pointer', transition: 'all 0.2s',
-                  boxShadow: savedSettings ? 'none' : '0 4px 15px rgba(99, 102, 241, 0.3)'
+                  cursor: isSaving ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
+                  boxShadow: savedSettings ? 'none' : '0 4px 15px rgba(99, 102, 241, 0.3)',
+                  opacity: isSaving ? 0.7 : 1
                 }}
               >
-                {savedSettings ? <><Check size={18} /> Saved successfully</> : <><Save size={18} /> Save Configuration</>}
+                {isSaving ? (
+                  <><Loader2 size={18} className="spin" /> Saving to Cloud...</>
+                ) : savedSettings ? (
+                  <><Check size={18} /> {saveStatusMessage || 'Saved to Firebase Cloud!'}</>
+                ) : (
+                  <><Save size={18} /> Save & Sync to Cloud</>
+                )}
               </button>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                ☁️ Saving here updates Firebase Firestore — any faculty device, mobile phone, or new browser will load this setup automatically.
+              </p>
             </div>
           </div>
         </section>

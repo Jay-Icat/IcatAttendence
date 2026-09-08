@@ -39,6 +39,13 @@ import {
 import { fetchSheetData, saveAttendanceToSheet, fetchHelpersData } from '../lib/googleSheets';
 import { Logger } from "../lib/logger";
 import { ALL_DEPARTMENTS, parseYearNumber } from '../lib/gvizSheets';
+import { 
+  fetchAppConfig, 
+  saveAppConfig, 
+  getUserDeptStorageKey, 
+  saveUserActiveDept, 
+  fetchUserActiveDept 
+} from '../lib/appConfig';
 
 export default function AttendancePage() {
   // Authentication state
@@ -47,9 +54,19 @@ export default function AttendancePage() {
   // Theme state
   const [theme, setTheme] = useState('dark');
 
-  // Sheet & Department State
+  // Sheet & Department State (defaults to previously saved department tab or 'GT')
   const [sheets, setSheets] = useState(ALL_DEPARTMENTS);
-  const [activeSheet, setActiveSheet] = useState('GT');
+  const [activeSheet, setActiveSheet] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHEET);
+        if (saved && ALL_DEPARTMENTS.includes(saved)) {
+          return saved;
+        }
+      } catch (e) {}
+    }
+    return 'GT';
+  });
   const [isConnected, setIsConnected] = useState(false);
   const [sheetUrl, setSheetUrl] = useState('');
   const [scriptUrl, setScriptUrl] = useState('');
@@ -152,7 +169,7 @@ export default function AttendancePage() {
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
-  // Initialize theme & sheet URL from localStorage or env
+  // Initialize theme & sheet URL from localStorage and synchronise with Cloud Firestore
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
@@ -169,7 +186,92 @@ export default function AttendancePage() {
         setScriptUrl(savedScriptUrl);
       }
     } catch (e) {}
+
+    // Pull latest cloud configuration from Firebase Firestore (for any new device/browser)
+    let isMounted = true;
+    const syncCloudConfig = async () => {
+      try {
+        const config = await fetchAppConfig();
+        if (!isMounted) return;
+        if (config.sheetUrl) {
+          setSheetUrl((prev) => {
+            if (config.sheetUrl !== prev) {
+              setSheetUrlInput(config.sheetUrl);
+              return config.sheetUrl;
+            }
+            return prev;
+          });
+        }
+        if (config.scriptUrl) {
+          setScriptUrl(config.scriptUrl);
+        }
+      } catch (err) {
+        console.warn('Could not sync cloud config on startup:', err);
+      }
+    };
+
+    syncCloudConfig();
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // When user signs in, refresh cloud config in case access required user authentication
+  useEffect(() => {
+    if (!user) return;
+    let isMounted = true;
+    const syncOnLogin = async () => {
+      try {
+        const config = await fetchAppConfig();
+        if (!isMounted) return;
+        if (config.sheetUrl) {
+          setSheetUrl((prev) => {
+            if (config.sheetUrl !== prev) {
+              setSheetUrlInput(config.sheetUrl);
+              return config.sheetUrl;
+            }
+            return prev;
+          });
+        }
+        if (config.scriptUrl) {
+          setScriptUrl(config.scriptUrl);
+        }
+      } catch (e) {}
+    };
+    syncOnLogin();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  // Restore user-specific active department when user logs in
+  useEffect(() => {
+    if (!user?.email) return;
+    let isMounted = true;
+    const restoreUserDept = async () => {
+      // 1. Fast local restore per-user
+      try {
+        const userKey = getUserDeptStorageKey(user.email);
+        const localUserDept = localStorage.getItem(userKey);
+        if (localUserDept && ALL_DEPARTMENTS.includes(localUserDept) && isMounted) {
+          setActiveSheet((prev) => (prev !== localUserDept ? localUserDept : prev));
+        }
+      } catch (e) {}
+
+      // 2. Cloud restore (if saved on another system)
+      try {
+        const cloudDept = await fetchUserActiveDept(user.email);
+        if (cloudDept && ALL_DEPARTMENTS.includes(cloudDept) && isMounted) {
+          setActiveSheet((prev) => (prev !== cloudDept ? cloudDept : prev));
+        }
+      } catch (e) {}
+    };
+
+    restoreUserDept();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]);
 
   const handleToggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -237,9 +339,10 @@ export default function AttendancePage() {
     setSheetUrl(cleanUrl);
 
     try {
-      localStorage.setItem(STORAGE_KEYS.SHEET_URL, cleanUrl);
-      localStorage.setItem(STORAGE_KEYS.SCRIPT_URL, cleanUrl);
-    } catch (err) {}
+      await saveAppConfig({ sheetUrl: cleanUrl, scriptUrl });
+    } catch (err) {
+      console.warn('Could not save connected sheet to cloud:', err);
+    }
 
     await loadDepartmentData(activeSheet, cleanUrl);
     setIsConnecting(false);
@@ -257,6 +360,7 @@ export default function AttendancePage() {
     setActiveSheet(newSheet);
     setCurrentAttendance({});
     setSelectedModule('');
+    saveUserActiveDept(user?.email, newSheet);
   };
 
   // Switch Date (Dev Mode)
